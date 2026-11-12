@@ -1,0 +1,274 @@
+[
+  {
+    "code": "en-US",
+    "iso": "en",
+    "name": "English (US)",
+    "nativeName": "English (US)",
+    "flag": "🇺🇸",
+    "script": "Latin"
+  },
+  {
+    "code": "en-GB",
+    "iso": "en",
+    "name": "English (UK)",
+    "nativeName": "English (UK)",
+    "flag": "🇬🇧",
+    "script": "Latin"
+  },
+  {
+    "code": "en-IN",
+    "iso": "en",
+    "name": "English (India)",
+    "nativeName": "English (India)",
+    "flag": "🇮🇳",
+    "script": "Latin"
+  },
+  {
+    "code": "es-ES",
+    "iso": "es",
+    "name": "Spanish (Spain)",
+    "nativeName": "Español (España)",
+    "flag": "🇪🇸",
+    "script": "Latin"
+  },
+  {
+    "code": "es-MX",
+    "iso": "es",
+    "name": "Spanish (Mexico)",
+    "nativeName": "Español (México)",
+    "flag": "🇲🇽",
+    "script": "Latin"
+  },
+  {
+    "code": "zh-CN",
+    "iso": "zh",
+    "name": "Chinese (Mandarin - Simplified)",
+    "nativeName": "简体中文",
+    "flag": "🇨🇳",
+    "script": "Hanzi"
+  },
+  {
+    "code": "zh-TW",
+    "iso": "zh",
+    "name": "Chinese (Traditional)",
+    "nativeName": "繁體中文",
+    "flag": "🇹🇼",
+    "script": "Hanzi"
+  },
+  {
+    "code": "hi-IN",
+    "iso": "hi",
+    "name": "Hindi",
+    "nativeName": "हिन्दी",
+    "flag": "🇮🇳",
+    "script": "Devanagari"
+  },
+  {
+    "code": "ar-SA",
+    "iso": "ar",
+    "name": "Arabic",
+    "nativeName": "العربية",
+    "flag": "🇸🇦",
+    "script": "Arabic"
+  },
+  {
+    "code": "fr-FR",
+    "iso": "fr",
+    "name": "French (France)",
+    "nativeName": "Français",
+    "flag": "🇫🇷",
+    "script": "Latin"
+  },
+  {
+    "code": "ru-RU",
+    "iso": "ru",
+    "name": "Russian",
+    "nativeName": "Русский",
+    "flag": "🇷🇺",
+    "script": "Cyrillic"
+  },
+  {
+    "code": "pt-BR",
+    "iso": "pt",
+    "name": "Portuguese (Brazil)",
+    "nativeName": "Português (Brasil)",
+    "flag": "🇧🇷",
+    "script": "Latin"
+  },
+  {
+    "code": "de-DE",
+    "iso": "de",
+    "name": "German",
+    "nativeName": "Deutsch",
+    "flag": "🇩🇪",
+    "script": "Latin"
+  },
+  {
+    "code": "ja-JP",
+    "iso": "ja",
+    "name": "Japanese",
+    "nativeName": "日本語",
+    "flag": "🇯🇵",
+    "script": "Kanji/Kana"
+  },
+  {
+    "code": "ko-KR",
+    "iso": "ko",
+    "name": "Korean",
+    "nativeName": "한국어",
+    "flag": "🇰🇷",
+    "script": "Hangul"
+  },
+  {
+    "code": "it-IT",
+    "iso": "it",
+    "name": "Italian",
+    "nativeName": "Italiano",
+    "flag": "🇮🇹",
+    "script": "Latin"
+  },
+  {
+    "code": "bn-IN",
+    "iso": "bn",
+    "name": "Bengali",
+    "nativeName": "বাংলা",
+    "flag": "🇧🇩",
+    "script": "Bengali"
+  },
+  {
+    "code": "tr-TR",
+    "iso": "tr",
+    "name": "Turkish",
+    "nativeName": "Türkçe",
+    "flag": "🇹🇷",
+    "script": "Latin"
+  },
+  {
+    "code": "vi-VN",
+    "iso": "vi",
+    "name": "Vietnamese",
+    "nativeName": "Tiếng Việt",
+    "flag": "🇻🇳",
+    "script": "Latin"
+  },
+  {
+    "code": "id-ID",
+    "iso": "id",
+    "name": "Indonesian",
+    "nativeName": "Bahasa Indonesia",
+    "flag": "🇮🇩",
+    "script": "Latin"
+  },
+  {
+    "code": "nl-NL",
+    "iso": "nl",
+    "name": "Dutch",
+    "nativeName": "Nederlands",
+    "flag": "🇳🇱",
+    "script": "Latin"
+  },
+  {
+    "code": "pl-PL",
+    "iso": "pl",
+    "name": "Polish",
+    "nativeName": "Polski",
+    "flag": "🇵🇱",
+    "script": "Latin"
+  },
+  {
+    "code": "fa-IR",
+    "iso": "fa",
+    "name": "Persian",
+    "nativeName": "فارسی",
+    "flag": "🇮🇷",
+    "script": "Arabic"
+  },
+  {
+    "code": "sw-KE",
+    "iso": "sw",
+    "name": "Swahili",
+    "nativeName": "Kiswahili",
+    "flag": "🇰🇪",
+    "script": "Latin"
+  },
+  {
+    "code": "ta-IN",
+    "iso": "ta",
+    "name": "Tamil",
+    "nativeName": "தமிழ்",
+    "flag": "🇮🇳",
+    "script": "Tamil"
+  },
+  {
+    "code": "te-IN",
+    "iso": "te",
+    "name": "Telugu",
+    "nativeName": "తెలుగు",
+    "flag": "🇮🇳",
+    "script": "Telugu"
+  },
+  {
+    "code": "ur-PK",
+    "iso": "ur",
+    "name": "Urdu",
+    "nativeName": "اردو",
+    "flag": "🇵🇰",
+    "script": "Arabic"
+  },
+  {
+    "code": "mr-IN",
+    "iso": "mr",
+    "name": "Marathi",
+    "nativeName": "मराठी",
+    "flag": "🇮🇳",
+    "script": "Devanagari"
+  },
+  {
+    "code": "uk-UA",
+    "iso": "uk",
+    "name": "Ukrainian",
+    "nativeName": "Українська",
+    "flag": "🇺🇦",
+    "script": "Cyrillic"
+  },
+  {
+    "code": "el-GR",
+    "iso": "el",
+    "name": "Greek",
+    "nativeName": "Ελληνικά",
+    "flag": "🇬🇷",
+    "script": "Greek"
+  },
+  {
+    "code": "sv-SE",
+    "iso": "sv",
+    "name": "Swedish",
+    "nativeName": "Svenska",
+    "flag": "🇸🇪",
+    "script": "Latin"
+  },
+  {
+    "code": "he-IL",
+    "iso": "he",
+    "name": "Hebrew",
+    "nativeName": "עברית",
+    "flag": "🇮🇱",
+    "script": "Hebrew"
+  },
+  {
+    "code": "th-TH",
+    "iso": "th",
+    "name": "Thai",
+    "nativeName": "ไทย",
+    "flag": "🇹🇭",
+    "script": "Thai"
+  },
+  {
+    "code": "cs-CZ",
+    "iso": "cs",
+    "name": "Czech",
+    "nativeName": "Čeština",
+    "flag": "🇨🇿",
+    "script": "Latin"
+  }
+]

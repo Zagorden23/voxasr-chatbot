@@ -1,16 +1,21 @@
 /**
  * VoxASR Backend Server (Pure JavaScript - Hono on Cloudflare Workers/Pages)
  * Serves REST API endpoints for:
- *  - Python-trained Softmax NLP Intent Chat (/api/chat)
+ *  - Multilingual CS & Mathematical Computing Intent Chat (/api/chat)
+ *  - Certified World Languages Registry (/api/languages)
+ *  - Automated Knowledge Pool & Scraped Data Status (/api/knowledge/status)
+ *  - Real-Time Automated Web Scraping & Training Trigger (/api/knowledge/upgrade)
+ *  - On-Demand Topic Ingestion (/api/knowledge/scrape)
  *  - Session & Transcript History via Cloudflare D1 (/api/sessions)
  *  - Word Error Rate (WER) & Character Error Rate (CER) Alignment (/api/wer)
- *  - Python Model Architecture & Training Metrics (/api/model)
+ *  - Model Architecture & Training Metrics (/api/model)
  */
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { predictIntent, computeWERAndAlignment, getModelSummary } from './inference.js'
+import certifiedLanguages from './languages.json'
 
 const app = new Hono()
 
@@ -41,6 +46,7 @@ async function ensureSchema(db) {
         asr_confidence REAL,
         intent_tag TEXT,
         intent_confidence REAL,
+        detected_language TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `)
@@ -69,6 +75,97 @@ app.get('/api/model', (c) => {
     ok: true,
     model: getModelSummary()
   })
+})
+
+// Certified World Languages List
+app.get('/api/languages', (c) => {
+  return c.json({
+    ok: true,
+    total: certifiedLanguages.length,
+    languages: certifiedLanguages
+  })
+})
+
+// Knowledge Pool & Auto-Upgrade Status
+app.get('/api/knowledge/status', async (c) => {
+  // First attempt to query the local upgrade daemon if running
+  try {
+    const daemonResp = await fetch('http://127.0.0.1:3001/status', {
+      headers: { 'Accept': 'application/json' }
+    })
+    if (daemonResp.ok) {
+      const data = await daemonResp.json()
+      return c.json(data)
+    }
+  } catch (_) {
+    // Daemon not running, fall back to in-bundle model stats
+  }
+
+  const summary = getModelSummary()
+  return c.json({
+    ok: true,
+    is_upgrading: false,
+    last_progress: 'Idle (Daemon offline)',
+    model_version: summary.version || '2.0.0',
+    trained_at: summary.trained_at || 'N/A',
+    train_accuracy: summary.train_accuracy || 0.868,
+    macro_f1: summary.macro_f1 || 0.889,
+    vocab_size: summary.vocab_size || 5000,
+    num_classes: summary.num_classes || 18,
+    base_patterns: summary.base_patterns || 1721,
+    total_scraped_articles: summary.scraped_articles_included || 36,
+    certified_languages_count: certifiedLanguages.length,
+    domains_summary: (summary.intents || []).map((it) => ({
+      key: it.tag,
+      title: it.title,
+      article_count: it.pattern_count
+    }))
+  })
+})
+
+// Trigger Automated Web Scraping & ML-DL Continuous Retraining
+app.post('/api/knowledge/upgrade', async (c) => {
+  try {
+    const daemonResp = await fetch('http://127.0.0.1:3001/upgrade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    })
+    const data = await daemonResp.json()
+    return c.json(data)
+  } catch (err) {
+    return c.json({
+      ok: false,
+      error:
+        'Continuous upgrade daemon is not reachable on port 3001. You can run it via `python webapp/training/upgrade_server.py` or `npm run upgrade`!'
+    }, 503)
+  }
+})
+
+// On-Demand Topic Web Scraping & Ingestion
+app.post('/api/knowledge/scrape', async (c) => {
+  try {
+    const body = await c.req.json()
+    const topic = String(body.topic || '').trim()
+    const lang = String(body.lang || 'en')
+    if (!topic) {
+      return c.json({ ok: false, error: 'Topic string is required' }, 400)
+    }
+
+    const daemonResp = await fetch('http://127.0.0.1:3001/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, lang })
+    })
+    const data = await daemonResp.json()
+    return c.json(data)
+  } catch (err) {
+    return c.json({
+      ok: false,
+      error:
+        'Upgrade daemon is not running on port 3001. Run `python webapp/training/upgrade_server.py` to enable real-time scraping!'
+    }, 503)
+  }
 })
 
 // List recent sessions
@@ -137,7 +234,7 @@ app.delete('/api/sessions/:id', async (c) => {
   return c.json({ ok: true })
 })
 
-// Main Chatbot Endpoint (uses Python-trained Softmax model weights)
+// Main Chatbot Endpoint
 app.post('/api/chat', async (c) => {
   try {
     const body = await c.req.json()
@@ -152,6 +249,7 @@ app.post('/api/chat', async (c) => {
     }
 
     const prediction = predictIntent(message)
+    const detectedLangCode = prediction.detectedLanguage?.lang || 'en-US'
 
     // Persist in Cloudflare D1 if bound
     const db = c.env?.DB
@@ -180,8 +278,8 @@ app.post('/api/chat', async (c) => {
 
         await db
           .prepare(
-            `INSERT INTO chat_messages (session_id, role, content, input_mode, asr_confidence, intent_tag, intent_confidence)
-             VALUES (?, 'user', ?, ?, ?, ?, ?)`
+            `INSERT INTO chat_messages (session_id, role, content, input_mode, asr_confidence, intent_tag, intent_confidence, detected_language)
+             VALUES (?, 'user', ?, ?, ?, ?, ?, ?)`
           )
           .bind(
             sessionId,
@@ -189,16 +287,17 @@ app.post('/api/chat', async (c) => {
             inputMode,
             asrConfidence,
             prediction.intentTag,
-            prediction.confidence
+            prediction.confidence,
+            detectedLangCode
           )
           .run()
 
         await db
           .prepare(
-            `INSERT INTO chat_messages (session_id, role, content, input_mode, asr_confidence, intent_tag, intent_confidence)
-             VALUES (?, 'bot', ?, 'system', NULL, ?, ?)`
+            `INSERT INTO chat_messages (session_id, role, content, input_mode, asr_confidence, intent_tag, intent_confidence, detected_language)
+             VALUES (?, 'bot', ?, 'system', NULL, ?, ?, ?)`
           )
-          .bind(sessionId, prediction.reply, prediction.intentTag, prediction.confidence)
+          .bind(sessionId, prediction.reply, prediction.intentTag, prediction.confidence, detectedLangCode)
           .run()
       } catch (_) {
         // Non-fatal DB fallback
@@ -283,7 +382,7 @@ app.get('*', (c) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VoxASR — Automatic Speech Recognition Chatbot (Python Trained + JS)</title>
+  <title>VoxASR — Multilingual CS & Mathematical AI Assistant</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="/static/style.css" />

@@ -1,24 +1,84 @@
 /**
- * Pure JavaScript Inference Engine + ASR Evaluation Metrics (WER / CER)
+ * Pure JavaScript Inference Engine + Multilingual CS/Math Classifier + ASR WER/CER Metrics
  * Loads the weights exported by `training/train_chatbot.py` and performs
- * exact Sublinear TF-IDF + L2-Normalized Softmax inference in <1ms.
+ * exact Sublinear TF-IDF + L2-Normalized Softmax inference in <1ms across
+ * all certified international languages and computer science / mathematical domains.
  */
 
-import trainedModel from './model/chatbot_model.json'
+import initialModel from './model/chatbot_model.json'
+
+let activeModel = initialModel
+
+export function reloadModel(newModelData) {
+  if (newModelData && newModelData.vocabulary && newModelData.weights) {
+    activeModel = newModelData
+    return true
+  }
+  return false
+}
 
 export function normalizeText(text = '') {
   return String(text)
+    .normalize('NFKC')
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+export function isCjkChar(ch) {
+  if (!ch) return false
+  const cp = ch.codePointAt(0)
+  return (
+    (cp >= 0x4e00 && cp <= 0x9fff) ||
+    (cp >= 0x3400 && cp <= 0x4dbf) ||
+    (cp >= 0x3040 && cp <= 0x309f) ||
+    (cp >= 0x30a0 && cp <= 0x30ff) ||
+    (cp >= 0xac00 && cp <= 0xd7af)
+  )
+}
+
+export function detectScriptAndLanguage(rawText = '') {
+  const text = String(rawText)
+  if (/[\u0900-\u097F]/.test(text)) return { script: 'Devanagari', lang: 'hi-IN', label: 'Hindi' }
+  if (/[\u0400-\u04FF]/.test(text)) return { script: 'Cyrillic', lang: 'ru-RU', label: 'Russian' }
+  if (/[\u0600-\u06FF]/.test(text)) return { script: 'Arabic', lang: 'ar-SA', label: 'Arabic' }
+  if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) return { script: 'Kana', lang: 'ja-JP', label: 'Japanese' }
+  if (/[\u4E00-\u9FFF]/.test(text)) return { script: 'Hanzi', lang: 'zh-CN', label: 'Mandarin Chinese' }
+  if (/[\uAC00-\uD7AF]/.test(text)) return { script: 'Hangul', lang: 'ko-KR', label: 'Korean' }
+  if (/[\u0980-\u09FF]/.test(text)) return { script: 'Bengali', lang: 'bn-IN', label: 'Bengali' }
+  if (/[\u0B80-\u0BFF]/.test(text)) return { script: 'Tamil', lang: 'ta-IN', label: 'Tamil' }
+  if (/[\u0C00-\u0C7F]/.test(text)) return { script: 'Telugu', lang: 'te-IN', label: 'Telugu' }
+  if (/[\u0370-\u03FF]/.test(text)) return { script: 'Greek', lang: 'el-GR', label: 'Greek' }
+  if (/[\u0590-\u05FF]/.test(text)) return { script: 'Hebrew', lang: 'he-IL', label: 'Hebrew' }
+  if (/[\u0E00-\u0E7F]/.test(text)) return { script: 'Thai', lang: 'th-TH', label: 'Thai' }
+
+  // Latin script language hints
+  const lower = text.toLowerCase()
+  if (/\b(qué|cómo|cuál|por qué|hola|gracias|buenos días)\b/i.test(lower)) {
+    return { script: 'Latin', lang: 'es-ES', label: 'Spanish' }
+  }
+  if (/\b(qu'est-ce|comment|pourquoi|bonjour|merci|salut)\b/i.test(lower)) {
+    return { script: 'Latin', lang: 'fr-FR', label: 'French' }
+  }
+  if (/\b(wie|warum|was ist|hallo|danke|guten morgen)\b/i.test(lower)) {
+    return { script: 'Latin', lang: 'de-DE', label: 'German' }
+  }
+  if (/\b(você|como funciona|olá|obrigado|bom dia)\b/i.test(lower)) {
+    return { script: 'Latin', lang: 'pt-BR', label: 'Portuguese' }
+  }
+  if (/\b(come funziona|cosa è|ciao|grazie|buongiorno)\b/i.test(lower)) {
+    return { script: 'Latin', lang: 'it-IT', label: 'Italian' }
+  }
+
+  return { script: 'Latin', lang: 'en-US', label: 'English' }
 }
 
 export function extractTokens(rawText) {
   const norm = normalizeText(rawText)
   if (!norm) return []
 
-  const words = norm.split(' ')
+  const words = norm.split(' ').filter(Boolean)
   const tokens = [...words]
 
   // Word 2-grams
@@ -26,9 +86,19 @@ export function extractTokens(rawText) {
     tokens.push(`${words[i]}_${words[i + 1]}`)
   }
 
+  // CJK character unigrams and bigrams
+  const chars = Array.from(norm)
+  const cjkChars = chars.filter(isCjkChar)
+  for (let i = 0; i < cjkChars.length; i++) {
+    tokens.push(`c:${cjkChars[i]}`)
+    if (i < cjkChars.length - 1) {
+      tokens.push(`c:${cjkChars[i]}${cjkChars[i + 1]}`)
+    }
+  }
+
   // Per-word Character 3-grams and 4-grams (mirrors Python training exactly)
   for (const word of words) {
-    if (word.length < 2) continue
+    if (word.length < 2 || Array.from(word).some(isCjkChar)) continue
     const padded = `<${word}>`
     for (const n of [3, 4]) {
       for (let i = 0; i <= padded.length - n; i++) {
@@ -43,10 +113,13 @@ export function extractTokens(rawText) {
 export function predictIntent(userMessage) {
   const start = performance.now()
   const tokens = extractTokens(userMessage)
-  const vocab = trainedModel.vocabulary
-  const idf = trainedModel.idf
-  const weights = trainedModel.weights
-  const biases = trainedModel.biases
+  const langMeta = detectScriptAndLanguage(userMessage)
+  const model = activeModel
+
+  const vocab = model.vocabulary
+  const idf = model.idf
+  const weights = model.weights
+  const biases = model.biases
 
   // Term frequency over known vocabulary indices
   const tfCounts = new Map()
@@ -65,18 +138,20 @@ export function predictIntent(userMessage) {
   // Fallback if zero known features matched
   if (tfCounts.size === 0) {
     return {
-      intentTag: 'asr_overview',
-      intentTitle: 'ASR Assistant Fallback',
-      confidence: 0.18,
+      intentTag: 'algorithms_complexity',
+      intentTitle: 'Computer Science & Mathematics AI Assistant',
+      confidence: 0.15,
+      detectedLanguage: langMeta,
       reply:
-        "I didn't catch a specific ASR keyword in that phrase! You can ask me about **Automatic Speech Recognition**, **OpenAI Whisper**, **MFCC & Log-Mel Spectrograms**, **CTC vs. RNN-T vs. Conformer**, **Wav2Vec 2.0**, **Voice Activity Detection (VAD)**, or **Word Error Rate (WER)**.",
+        "I didn't identify specific technical keywords in that message. You can ask me across any **Certified World Language** about:\n\n- **Algorithms & Complexity**: Dijkstra, A*, Dynamic Programming, P vs NP, Big-O\n- **Mathematical Computing**: SVD, QR/LU decomposition, Runge-Kutta RK4, FFT, Monte Carlo\n- **Machine Learning & Deep Learning**: Transformers, RoPE, Attention, Backprop, Diffusion, Loss Functions\n- **Speech AI & ASR**: OpenAI Whisper, Conformer, CTC Loss, WER Evaluation, Spectrograms\n- **Systems, Compilers & Cryptography**: Virtual Memory, Raft, LLVM IR, RSA, ECC, Zero-Knowledge Proofs\n\nOr click the **Auto-Upgrade Knowledge** button to trigger automated web scraping!",
       followUps: [
-        'What is Automatic Speech Recognition?',
+        'Explain Singular Value Decomposition (SVD)',
+        'What is Dijkstra shortest path algorithm?',
         'How does OpenAI Whisper work?',
-        'How do you calculate Word Error Rate?'
+        'What is P vs NP in computational complexity?'
       ],
       topPredictions: [
-        { tag: 'asr_overview', title: 'ASR Fundamentals & Pipeline', probability: 0.18 }
+        { tag: 'algorithms_complexity', title: 'Algorithms & Complexity', probability: 0.15 }
       ],
       matchedTokens: [],
       latencyMs: Number((performance.now() - start).toFixed(3))
@@ -99,7 +174,7 @@ export function predictIntent(userMessage) {
   }
 
   // Compute logits = W * x + b
-  const numClasses = trainedModel.classes.length
+  const numClasses = model.classes.length
   const logits = new Array(numClasses)
   let maxLogit = -Infinity
 
@@ -130,22 +205,29 @@ export function predictIntent(userMessage) {
   const ranked = probs
     .map((p, idx) => ({
       index: idx,
-      tag: trainedModel.intents[idx].tag,
-      title: trainedModel.intents[idx].title,
+      tag: model.intents[idx].tag,
+      title: model.intents[idx].title,
       probability: Number(p.toFixed(4))
     }))
     .sort((a, b) => b.probability - a.probability)
 
   const best = ranked[0]
-  const intentObj = trainedModel.intents[best.index]
+  const intentObj = model.intents[best.index]
 
-  // Check if user directly asked to compute WER inline like: "wer: ref | hyp"
   let reply =
+    intentObj.responses[0] ||
     intentObj.responses[Math.floor(Math.random() * intentObj.responses.length)]
 
-  if (best.probability < 0.24) {
+  // Append dynamic web-scraped insight from ArXiv / Wikipedia if available
+  if (intentObj.scraped_insights && intentObj.scraped_insights.length > 0) {
+    const insight =
+      intentObj.scraped_insights[Math.floor(Math.random() * intentObj.scraped_insights.length)]
+    reply += `\n\n> 🌐 **Live Web-Harvested Ingestion (${insight.source})**: **${insight.title}**\n> ${insight.summary}`
+  }
+
+  if (best.probability < 0.28) {
     reply =
-      `I matched your message closest to **${intentObj.title}** (${Math.round(best.probability * 100)}% confidence):\n\n` +
+      `*Matched domain:* **${intentObj.title}** (${Math.round(best.probability * 100)}% match)\n\n` +
       reply
   }
 
@@ -153,6 +235,7 @@ export function predictIntent(userMessage) {
     intentTag: best.tag,
     intentTitle: intentObj.title,
     confidence: best.probability,
+    detectedLanguage: langMeta,
     reply,
     followUps: intentObj.follow_ups || [],
     topPredictions: ranked.slice(0, 4),
@@ -284,9 +367,10 @@ function levenshteinDistance(a, b) {
 }
 
 export function getModelSummary() {
+  const model = activeModel
   return {
-    ...trainedModel.model_info,
-    intents: trainedModel.intents.map((it) => ({
+    ...model.model_info,
+    intents: model.intents.map((it) => ({
       tag: it.tag,
       title: it.title,
       pattern_count: it.pattern_count,

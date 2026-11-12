@@ -1,0 +1,47 @@
+[
+  {
+    "timestamp": "2026-11-12T06:25:15Z",
+    "num_classes": 18,
+    "patterns": 1687,
+    "vocab_size": 3500,
+    "train_accuracy": 0.8635398230088496,
+    "macro_f1": 0.8834575431992915,
+    "scraped_articles": 36
+  },
+  {
+    "timestamp": "2026-11-12T06:26:08Z",
+    "num_classes": 18,
+    "patterns": 1721,
+    "vocab_size": 5000,
+    "train_accuracy": 0.8682749045470323,
+    "macro_f1": 0.8892712278468342,
+    "scraped_articles": 36
+  },
+  {
+    "timestamp": "2026-11-12T06:34:38Z",
+    "num_classes": 18,
+    "patterns": 1721,
+    "vocab_size": 5000,
+    "train_accuracy": 0.8682749045470323,
+    "macro_f1": 0.8892712278468342,
+    "scraped_articles": 36
+  },
+  {
+    "timestamp": "2026-11-12T06:35:24Z",
+    "num_classes": 18,
+    "patterns": 1721,
+    "vocab_size": 5000,
+    "train_accuracy": 0.8682749045470323,
+    "macro_f1": 0.8892712278468342,
+    "scraped_articles": 36
+  },
+  {
+    "timestamp": "2026-11-12T06:45:49Z",
+    "num_classes": 18,
+    "patterns": 1721,
+    "vocab_size": 5000,
+    "train_accuracy": 0.8682749045470323,
+    "macro_f1": 0.8892712278468342,
+    "scraped_articles": 36
+  }
+]
