@@ -34,4 +34,6 @@ lerna-debug.log*
 __pycache__/
 *.pyc
 .venv/
+data/
+training/learned_knowledge.json
 

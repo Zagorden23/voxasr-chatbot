@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-11-12T06:45:31Z",
+    "last_updated": "2026-11-12T06:47:46Z",
     "total_domains": 12,
     "harvester_version": "2.0.0",
     "total_articles": 36,
@@ -51,7 +51,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_algorithms_complexity_96688",
+          "topic_id": "arxiv_algorithms_complexity_37354",
           "title": "Online Graph Coloring: Competitive Ratios Separating Randomized and Deterministic Algorithms",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14513v1",
@@ -90,7 +90,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_algorithms_complexity_45502",
+          "topic_id": "arxiv_algorithms_complexity_59792",
           "title": "A note on the intractability of enumerating the maximal satisfiable subformulas of a Horn expression",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14471v1",
@@ -174,7 +174,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_data_structures_96688",
+          "topic_id": "arxiv_data_structures_37354",
           "title": "Online Graph Coloring: Competitive Ratios Separating Randomized and Deterministic Algorithms",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14513v1",
@@ -213,7 +213,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_data_structures_45502",
+          "topic_id": "arxiv_data_structures_59792",
           "title": "A note on the intractability of enumerating the maximal satisfiable subformulas of a Horn expression",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14471v1",
@@ -297,7 +297,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_numerical_analysis_93709",
+          "topic_id": "arxiv_numerical_analysis_96511",
           "title": "A fourth-order dimensionally split exponential time differencing scheme with real and distinct pole rational approximation for non-linear reaction-diffusion systems",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14485v1",
@@ -336,7 +336,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_numerical_analysis_93261",
+          "topic_id": "arxiv_numerical_analysis_95224",
           "title": "Shape Perturbation of the Galerkin Boundary Element Dirichlet-to-Neumann Matrix on Moving Polygons",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14349v1",
@@ -420,7 +420,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_machine_learning_dl_91796",
+          "topic_id": "arxiv_machine_learning_dl_29277",
           "title": "Medical Image Segmentation: Foundation Model Adaptation versus Task-Specific Training",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14519v1",
@@ -459,7 +459,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_machine_learning_dl_5012",
+          "topic_id": "arxiv_machine_learning_dl_20484",
           "title": "Toward Foundation Detection Models via Example-Based Grounding in EM-DETR",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14518v1",
@@ -543,7 +543,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_speech_ai_asr_63844",
+          "topic_id": "arxiv_speech_ai_asr_72844",
           "title": "AutoScaffold: AI-Guided Scaffolding for Reinforcement Learning of Language Models",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14515v1",
@@ -582,7 +582,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_speech_ai_asr_39104",
+          "topic_id": "arxiv_speech_ai_asr_78414",
           "title": "Contrastive Discovery: Open-Ended Scientific Discovery over Competing Explanations",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14514v1",
@@ -666,7 +666,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_theoretical_cs_discrete_math_96688",
+          "topic_id": "arxiv_theoretical_cs_discrete_math_37354",
           "title": "Online Graph Coloring: Competitive Ratios Separating Randomized and Deterministic Algorithms",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14513v1",
@@ -705,7 +705,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_theoretical_cs_discrete_math_63520",
+          "topic_id": "arxiv_theoretical_cs_discrete_math_10124",
           "title": "Annular Counterexamples and Skew-Shape Block Identities",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14506v1",
@@ -789,7 +789,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_systems_distributed_computing_93001",
+          "topic_id": "arxiv_systems_distributed_computing_56457",
           "title": "EngineAgent: Agentizing On-Device LLM Inference Engines with Inference Stack Hierarchy Awareness and Hardware Abilities",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14356v1",
@@ -828,7 +828,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_systems_distributed_computing_94402",
+          "topic_id": "arxiv_systems_distributed_computing_9853",
           "title": "On Federated Averaging with Partial Participation under a General Variance Condition",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14239v1",
@@ -912,7 +912,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_compilers_programming_languages_15087",
+          "topic_id": "arxiv_compilers_programming_languages_48690",
           "title": "Performance Portability Explained: Insights from accelerating ICON microphysics",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14204v1",
@@ -951,7 +951,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_compilers_programming_languages_86906",
+          "topic_id": "arxiv_compilers_programming_languages_56737",
           "title": "CFGKAT: A Complete Calculus for Non-Local Control Flow",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14201v1",
@@ -1035,7 +1035,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_cryptography_security_93909",
+          "topic_id": "arxiv_cryptography_security_42250",
           "title": "How Well Do SAST Tools Work Across Languages? An Empirical Study Using OCPP Implementations",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14362v1",
@@ -1074,7 +1074,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_cryptography_security_50993",
+          "topic_id": "arxiv_cryptography_security_72392",
           "title": "MammothDP: Private Boosted Decision Trees Ready for Trusted Hardware and Leakage-free Hyperparameters",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14317v1",
@@ -1158,7 +1158,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_calculus_linear_algebra_31810",
+          "topic_id": "arxiv_calculus_linear_algebra_6649",
           "title": "The expected number of holes of the planar Wiener sausage",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14500v1",
@@ -1197,7 +1197,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_calculus_linear_algebra_11105",
+          "topic_id": "arxiv_calculus_linear_algebra_30617",
           "title": "Phase transitions in the hard-wall large deviations for the Gaussian free field",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14448v1",
@@ -1281,7 +1281,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_gpu_hpc_computing_94402",
+          "topic_id": "arxiv_gpu_hpc_computing_9853",
           "title": "On Federated Averaging with Partial Participation under a General Variance Condition",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14239v1",
@@ -1320,7 +1320,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_gpu_hpc_computing_15087",
+          "topic_id": "arxiv_gpu_hpc_computing_48690",
           "title": "Performance Portability Explained: Insights from accelerating ICON microphysics",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14204v1",
@@ -1404,7 +1404,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_database_vector_search_50993",
+          "topic_id": "arxiv_database_vector_search_72392",
           "title": "MammothDP: Private Boosted Decision Trees Ready for Trusted Hardware and Leakage-free Hyperparameters",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.14317v1",
@@ -1443,7 +1443,7 @@
           ]
         },
         {
-          "topic_id": "arxiv_database_vector_search_79670",
+          "topic_id": "arxiv_database_vector_search_77815",
           "title": "SAIL: Self-Adaptive Index Learning with Hybrid Models (Extended Version)",
           "source": "ArXiv",
           "url": "http://arxiv.org/abs/2611.13856v1",
@@ -1480,6 +1480,52 @@
             "o que é sail: self-adaptive index learning with ",
             "como funciona sail: self-adaptive index learning with "
           ]
+        }
+      ]
+    },
+    "computer_science_general": {
+      "title": "Computer Science General",
+      "article_count": 1,
+      "articles": [
+        {
+          "topic_id": "computer_science_general_queue",
+          "title": "Queue",
+          "source": "Wikipedia (On-Demand)",
+          "url": "https://en.wikipedia.org/wiki/Queue",
+          "summary": "Queue may refer to:",
+          "patterns": [
+            "what is queue",
+            "explain queue",
+            "how does queue work",
+            "definition of queue",
+            "algorithm of queue",
+            "mathematical principles of queue",
+            "queue",
+            "qué es queue",
+            "explica queue",
+            "cómo funciona queue",
+            "qu'est-ce que queue",
+            "expliquez queue",
+            "comment fonctionne queue",
+            "was ist queue",
+            "erkläre queue",
+            "wie funktioniert queue",
+            "什么是queue",
+            "解释queue",
+            "queue的原理",
+            "queue क्या है",
+            "queue कैसे काम करता है",
+            "queue समझाइए",
+            "что такое queue",
+            "объясните queue",
+            "ما هو queue",
+            "اشرح queue",
+            "queueとは",
+            "queueの仕組み",
+            "o que é queue",
+            "como funciona queue"
+          ],
+          "scraped_at": "2026-11-12T06:49:03Z"
         }
       ]
     }

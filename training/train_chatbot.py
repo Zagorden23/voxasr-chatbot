@@ -14,6 +14,7 @@ import logging
 import math
 import os
 import re
+import sys
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,6 +30,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("TrainChatbot")
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
+from training import kb_store  # noqa: E402
+
 INTENTS_PATH = ROOT_DIR / "training" / "intents.json"
 DYNAMIC_POOL_PATH = ROOT_DIR / "training" / "dynamic_knowledge_pool.json"
 MODEL_OUT_PATH = ROOT_DIR / "src" / "model" / "chatbot_model.json"
@@ -105,25 +110,59 @@ def combined_analyzer(raw_text: str):
 
 def load_all_training_data():
     """
-    Loads base intents from `intents.json` and enriches them with dynamic
-    web-scraped articles from `dynamic_knowledge_pool.json`.
+    Loads base intents from `intents.json` and enriches them with:
+    1. Sharded knowledge pool from `public/static/kb/` (via `kb_store.load_kb()`)
+    2. Legacy dynamic knowledge pool (`dynamic_knowledge_pool.json`) for ArXiv/fallback insights.
     """
     with open(INTENTS_PATH, "r", encoding="utf-8") as f:
         base_dataset = json.load(f)
 
     intents_dict = {}
-    for idx, item in enumerate(base_dataset["intents"]):
+    for item in base_dataset["intents"]:
         tag = item["tag"]
         intents_dict[tag] = {
             "tag": tag,
             "title": item["title"],
             "patterns": list(dict.fromkeys(item["patterns"])),
             "responses": item["responses"],
-            "follow_ups": item.get("follow_ups", [])
+            "follow_ups": item.get("follow_ups", []),
+            "scraped_insights": [],
         }
 
     scraped_articles_count = 0
-    # Ingest dynamically scraped knowledge pool if present
+    seen_titles = set()
+
+    # 1. Load sharded KB articles (public/static/kb/)
+    kb_articles = kb_store.load_kb()
+    per_domain_patterns = {}
+    for title, art in kb_articles.items():
+        scraped_articles_count += 1
+        seen_titles.add(title)
+        domain_key = art.get("d")
+        if domain_key and domain_key in intents_dict:
+            count = per_domain_patterns.get(domain_key, 0)
+            if count < 80:
+                clean_title = re.sub(r"\s*\([^)]*\)$", "", title).strip().lower()
+                if clean_title and len(clean_title) >= 2:
+                    intents_dict[domain_key]["patterns"].append(clean_title)
+                    intents_dict[domain_key]["patterns"].append(f"what is {clean_title}")
+                    for alias in (art.get("a") or [])[:3]:
+                        a_clean = str(alias).strip().lower()
+                        if len(a_clean) >= 2:
+                            intents_dict[domain_key]["patterns"].append(a_clean)
+                    per_domain_patterns[domain_key] = count + 1
+            if len(intents_dict[domain_key]["scraped_insights"]) < 4:
+                lang = art.get("l", "en")
+                src = art.get("s", "Wikipedia")
+                url = art.get("u") or f"https://{lang}.wikipedia.org/wiki/{title.replace(' ', '_')}"
+                intents_dict[domain_key]["scraped_insights"].append({
+                    "title": title,
+                    "source": src,
+                    "summary": art.get("x", "")[:240],
+                    "url": url,
+                })
+
+    # 2. Enrich with dynamic_knowledge_pool.json (e.g. ArXiv preprints) without duplicating titles
     if DYNAMIC_POOL_PATH.exists():
         try:
             with open(DYNAMIC_POOL_PATH, "r", encoding="utf-8") as f:
@@ -132,27 +171,27 @@ def load_all_training_data():
             for domain_key, domain_info in domains.items():
                 articles = domain_info.get("articles", [])
                 target_tag = domain_key
-                # Map domain_key to tag or default
                 if target_tag not in intents_dict:
-                    # Find closest match
                     for k in intents_dict:
                         if domain_key in k or k in domain_key:
                             target_tag = k
                             break
                 if target_tag in intents_dict:
-                    intents_dict[target_tag].setdefault("scraped_insights", [])
                     for art in articles:
+                        t = art.get("title", "")
+                        if t in seen_titles:
+                            continue
+                        seen_titles.add(t)
                         scraped_articles_count += 1
-                        # Append scraped patterns to expand ML training pool
-                        new_pats = art.get("patterns", [])
-                        intents_dict[target_tag]["patterns"].extend(new_pats)
-                        # Save structured scraped insight
+                        # Only add concise domain-specific title/first-3 patterns to avoid cross-domain template noise
+                        for p in art.get("patterns", [])[:5]:
+                            intents_dict[target_tag]["patterns"].append(p)
                         if len(intents_dict[target_tag]["scraped_insights"]) < 4:
                             intents_dict[target_tag]["scraped_insights"].append({
-                                "title": art["title"],
-                                "source": art["source"],
-                                "summary": art["summary"][:240],
-                                "url": art.get("url", "")
+                                "title": t,
+                                "source": art.get("source", "ArXiv"),
+                                "summary": art.get("summary", "")[:240],
+                                "url": art.get("url", ""),
                             })
         except Exception as ex:
             logger.warning(f"Error loading dynamic knowledge pool: {ex}")
@@ -213,7 +252,7 @@ def train_and_export():
         analyzer=combined_analyzer,
         sublinear_tf=True,
         norm="l2",
-        max_features=5000,
+        max_features=8000,
         min_df=1
     )
 
@@ -225,7 +264,7 @@ def train_and_export():
     # 5-Fold Stratified Cross Validation on base patterns
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     cv_pipe = make_pipeline(
-        TfidfVectorizer(analyzer=combined_analyzer, sublinear_tf=True, norm="l2", max_features=5000, min_df=1),
+        TfidfVectorizer(analyzer=combined_analyzer, sublinear_tf=True, norm="l2", max_features=8000, min_df=1),
         LogisticRegression(C=15.0, max_iter=1000, class_weight="balanced", random_state=42)
     )
     cv_scores = cross_val_score(cv_pipe, raw_texts, raw_y, cv=cv, scoring="accuracy")
@@ -303,6 +342,8 @@ def train_and_export():
     MODEL_OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(MODEL_OUT_PATH, "w", encoding="utf-8") as f:
         json.dump(exported_model, f, separators=(",", ":"))
+
+    kb_store.publish_model(MODEL_OUT_PATH, exported_model["model_info"]["trained_at"])
 
     size_kb = MODEL_OUT_PATH.stat().st_size / 1024
     print(f"\nExported trained model -> {MODEL_OUT_PATH} ({size_kb:.1f} KB)")

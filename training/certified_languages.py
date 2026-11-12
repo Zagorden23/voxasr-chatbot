@@ -345,8 +345,21 @@ CERTIFIED_LANGUAGES = [
         "script": "Latin",
         "greetings": ["ahoj", "dobrý den", "dobré ráno", "dobrý večer"],
         "check": ["test mikrofonu", "slyšíš mě", "zkouška mikrofonu"]
+    },
+    {
+        "code": "ro-RO",
+        "iso": "ro",
+        "name": "Romanian",
+        "nativeName": "Română",
+        "flag": "🇷🇴",
+        "script": "Latin",
+        "greetings": ["salut", "bună ziua", "bună dimineața", "bună seara"],
+        "check": ["test microfon", "mă auzi", "verificare microfon"]
     }
 ]
+
+RTL_SCRIPTS = {"Arabic", "Hebrew"}
+
 
 def get_all_greetings():
     res = []
@@ -354,6 +367,7 @@ def get_all_greetings():
         res.extend(lang["greetings"])
         res.extend(lang["check"])
     return list(dict.fromkeys(res))
+
 
 def get_language_summary():
     return [
@@ -363,7 +377,8 @@ def get_language_summary():
             "name": l["name"],
             "nativeName": l["nativeName"],
             "flag": l["flag"],
-            "script": l["script"]
+            "script": l["script"],
+            "rtl": l["script"] in RTL_SCRIPTS
         }
         for l in CERTIFIED_LANGUAGES
     ]

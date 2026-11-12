@@ -21,14 +21,15 @@ from urllib.parse import parse_qs, urlparse
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
+from training import kb_store
 from training.auto_train_pipeline import run_pipeline
 from training.certified_languages import CERTIFIED_LANGUAGES, get_language_summary
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("UpgradeDaemon")
 
-PORT = 3001
-HOST = "127.0.0.1"
+PORT = int(os.environ.get("UPGRADE_PORT", "3001"))
+HOST = os.environ.get("UPGRADE_HOST", "127.0.0.1")
 
 is_training_lock = threading.Lock()
 training_status = {
@@ -39,33 +40,26 @@ training_status = {
 
 
 def rebuild_webapp():
-    """Runs `npm run build` in webapp to update the compiled worker with new model weights."""
+    """Optional build hook; live server hot-reloads KB & model via manifest.json."""
+    if os.environ.get("REBUILD_ON_UPGRADE") != "1":
+        return True
     try:
-        logger.info("Rebuilding webapp pure JavaScript worker bundle...")
+        logger.info("Rebuilding webapp bundle...")
         npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
         res = subprocess.run([npm_cmd, "run", "build"], cwd=str(ROOT_DIR), capture_output=True, text=True, timeout=60)
         if res.returncode == 0:
-            logger.info("Worker bundle rebuilt successfully!")
+            logger.info("Bundle rebuilt successfully!")
             return True
-        else:
-            logger.warning(f"Rebuild returned non-zero code: {res.stderr}")
+        logger.warning(f"Rebuild returned non-zero code: {res.stderr}")
     except Exception as ex:
         logger.warning(f"Failed to rebuild bundle: {ex}")
     return False
 
 
 def get_current_stats():
-    pool_path = ROOT_DIR / "training" / "dynamic_knowledge_pool.json"
+    manifest = kb_store.load_manifest()
     model_path = ROOT_DIR / "src" / "model" / "chatbot_model.json"
     history_path = ROOT_DIR / "src" / "model" / "training_history.json"
-
-    pool_data = {}
-    if pool_path.exists():
-        try:
-            with open(pool_path, "r", encoding="utf-8") as f:
-                pool_data = json.load(f)
-        except Exception:
-            pass
 
     model_data = {}
     if model_path.exists():
@@ -84,7 +78,7 @@ def get_current_stats():
             pass
 
     meta = model_data.get("model_info", {})
-    domains = pool_data.get("domains", {})
+    kb_domains = manifest.get("domains", {})
 
     return {
         "ok": True,
@@ -97,16 +91,16 @@ def get_current_stats():
         "vocab_size": meta.get("vocab_size", 0),
         "num_classes": meta.get("num_classes", len(model_data.get("classes", []))),
         "base_patterns": meta.get("base_patterns", 0),
-        "total_scraped_articles": pool_data.get("metadata", {}).get("total_articles", 0),
-        "total_scraped_patterns": pool_data.get("metadata", {}).get("total_patterns", 0),
+        "total_scraped_articles": manifest.get("total_articles") or meta.get("scraped_articles_included", 0),
+        "total_scraped_patterns": meta.get("augmented_samples", 0),
         "certified_languages_count": len(CERTIFIED_LANGUAGES),
         "domains_summary": [
             {
                 "key": k,
-                "title": v.get("title", k),
-                "article_count": len(v.get("articles", []))
+                "title": k.replace("_", " ").title(),
+                "article_count": count
             }
-            for k, v in domains.items()
+            for k, count in kb_domains.items()
         ],
         "history": history_data[-5:]
     }

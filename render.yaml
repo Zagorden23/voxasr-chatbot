@@ -1,0 +1,31 @@
+# Render Blueprint Specification (https://render.com/docs/blueprint-spec)
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+
+databases:
+  - name: voxasr-db
+    databaseName: voxasr
+    user: voxasr
+    plan: free
+    region: oregon
+
+services:
+  - type: web
+    name: voxasr-chatbot
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RATE_LIMIT_MAX
+        value: "180"
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: voxasr-db
+          property: connectionString

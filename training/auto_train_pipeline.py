@@ -20,7 +20,8 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
-from training.knowledge_harvester import harvest_all_domains, harvest_custom_topic
+from training import kb_store
+from training.knowledge_harvester import expand_pool, harvest_all_domains, harvest_custom_topic
 from training.train_chatbot import train_and_export
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -33,20 +34,25 @@ def run_pipeline(custom_topic: str = None, lang: str = "en", max_topics_per_doma
     logger.info("Starting Automated Knowledge Upgradation & Training...")
     logger.info("=======================================================")
 
-    harvest_result = None
     if custom_topic:
         logger.info(f"Targeted on-demand harvest for topic: '{custom_topic}' (lang={lang})")
         harvest_result = harvest_custom_topic(custom_topic, lang=lang)
     else:
-        logger.info(f"Full automated harvest across all 12 CS & Math domains (max_topics={max_topics_per_domain})...")
-        harvest_result = harvest_all_domains(max_topics_per_domain=max_topics_per_domain)
+        manifest = kb_store.load_manifest()
+        if manifest.get("total_articles", 0) > 0:
+            logger.info("Expanding sharded knowledge pool incrementally...")
+            harvest_result = expand_pool(max_new=max(30, max_topics_per_domain * 20))
+        else:
+            logger.info(f"Harvesting CS & Math domains (max_topics_per_domain={max_topics_per_domain})...")
+            harvest_result = harvest_all_domains(max_topics_per_domain=max_topics_per_domain)
 
     # Trigger ML-DL retraining
-    logger.info("Triggering ML-DL Retraining with updated dynamic knowledge pool...")
+    logger.info("Triggering ML-DL Retraining with updated knowledge pool...")
     trained_model = train_and_export()
 
     elapsed = round(time.time() - start_time, 2)
     meta = trained_model["model_info"]
+    manifest = kb_store.load_manifest()
 
     report = {
         "ok": True,
@@ -58,7 +64,8 @@ def run_pipeline(custom_topic: str = None, lang: str = "en", max_topics_per_doma
         "total_patterns": meta["base_patterns"],
         "augmented_samples": meta["augmented_samples"],
         "vocab_size": meta["vocab_size"],
-        "scraped_articles": meta["scraped_articles_included"],
+        "scraped_articles": manifest.get("total_articles") or meta["scraped_articles_included"],
+        "harvest_result": harvest_result,
         "train_accuracy": meta["train_accuracy"],
         "macro_f1": meta["macro_f1"],
         "cv_accuracy_mean": meta["cv_accuracy_mean"]

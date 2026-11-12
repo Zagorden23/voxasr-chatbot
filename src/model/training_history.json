@@ -43,5 +43,50 @@
     "train_accuracy": 0.8682749045470323,
     "macro_f1": 0.8892712278468342,
     "scraped_articles": 36
+  },
+  {
+    "timestamp": "2026-11-12T06:48:04Z",
+    "num_classes": 18,
+    "patterns": 1721,
+    "vocab_size": 5000,
+    "train_accuracy": 0.8682749045470323,
+    "macro_f1": 0.8892712278468342,
+    "scraped_articles": 36
+  },
+  {
+    "timestamp": "2026-11-12T06:49:09Z",
+    "num_classes": 18,
+    "patterns": 1721,
+    "vocab_size": 5000,
+    "train_accuracy": 0.8682749045470323,
+    "macro_f1": 0.8892712278468342,
+    "scraped_articles": 36
+  },
+  {
+    "timestamp": "2026-11-12T17:52:22Z",
+    "num_classes": 18,
+    "patterns": 2417,
+    "vocab_size": 5000,
+    "train_accuracy": 0.9804210808636181,
+    "macro_f1": 0.9588131820351887,
+    "scraped_articles": 614
+  },
+  {
+    "timestamp": "2026-11-12T17:52:56Z",
+    "num_classes": 18,
+    "patterns": 2417,
+    "vocab_size": 8000,
+    "train_accuracy": 0.9900764382459434,
+    "macro_f1": 0.9789795656558593,
+    "scraped_articles": 614
+  },
+  {
+    "timestamp": "2026-11-12T17:53:52Z",
+    "num_classes": 18,
+    "patterns": 2421,
+    "vocab_size": 8000,
+    "train_accuracy": 0.988358089120835,
+    "macro_f1": 0.9731046908235802,
+    "scraped_articles": 614
   }
 ]

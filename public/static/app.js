@@ -1,53 +1,56 @@
 /**
- * VoxASR Frontend SPA — Pure JavaScript + React 18 (No TypeScript / No JSX build needed)
- * Integrates:
- *  - 35 Certified World Languages for Web Speech API (STT) & SpeechSynthesis (TTS)
- *  - Multilingual Computer Science & Mathematical Computing AI Assistant
- *  - Continuous Automated Web Scraping & ML-DL Retraining Dashboard
- *  - Web Audio API (AnalyserNode) for live microphone frequency waveform visualization
- *  - Word Error Rate (WER) / Character Error Rate (CER) Dynamic Programming Evaluator Lab
- *  - Python Training Pipeline & Softmax Weights Inspector
+ * VoxASR Commercial Frontend SPA — Pure JavaScript + React 18
+ * Features:
+ *  - 35 Certified World Languages (Web Speech API STT + SpeechSynthesis TTS + RTL support)
+ *  - Persistent Multi-Session History, Rename, Delete & Markdown/JSON Transcript Export
+ *  - Hybrid Softmax + BM25 Extractive QA + Live Web Self-Learning + Math Evaluator
+ *  - Per-Message Copy, Read Aloud (TTS), Thumbs Up/Down Feedback & Source Citations
+ *  - Web Audio API (AnalyserNode) Live Microphone Frequency Spectrum Visualizer
+ *  - Interactive Knowledge Search Explorer & One-Click Live Web Scraping
+ *  - WER / CER Evaluator Lab with Live Microphone Dictation & History Log
+ *  - Commercial Telemetry & Model Inspector Dashboard
  */
 
 ;(function () {
   const e = React.createElement
   const { useState, useEffect, useRef } = React
 
-  const CERTIFIED_LANGUAGES = [
-    { code: 'en-US', name: 'English (US)', flag: '🇺🇸', script: 'Latin' },
-    { code: 'en-GB', name: 'English (UK)', flag: '🇬🇧', script: 'Latin' },
-    { code: 'en-IN', name: 'English (India)', flag: '🇮🇳', script: 'Latin' },
-    { code: 'es-ES', name: 'Español (España)', flag: '🇪🇸', script: 'Latin' },
-    { code: 'es-MX', name: 'Español (México)', flag: '🇲🇽', script: 'Latin' },
-    { code: 'zh-CN', name: '简体中文 (Mandarin)', flag: '🇨🇳', script: 'Hanzi' },
-    { code: 'zh-TW', name: '繁體中文 (Traditional)', flag: '🇹🇼', script: 'Hanzi' },
-    { code: 'hi-IN', name: 'हिन्दी (Hindi)', flag: '🇮🇳', script: 'Devanagari' },
-    { code: 'ar-SA', name: 'العربية (Arabic)', flag: '🇸🇦', script: 'Arabic' },
-    { code: 'fr-FR', name: 'Français (French)', flag: '🇫🇷', script: 'Latin' },
-    { code: 'ru-RU', name: 'Русский (Russian)', flag: '🇷🇺', script: 'Cyrillic' },
-    { code: 'pt-BR', name: 'Português (Brasil)', flag: '🇧🇷', script: 'Latin' },
-    { code: 'de-DE', name: 'Deutsch (German)', flag: '🇩🇪', script: 'Latin' },
-    { code: 'ja-JP', name: '日本語 (Japanese)', flag: '🇯🇵', script: 'Kanji/Kana' },
-    { code: 'ko-KR', name: '한국어 (Korean)', flag: '🇰🇷', script: 'Hangul' },
-    { code: 'it-IT', name: 'Italiano (Italian)', flag: '🇮🇹', script: 'Latin' },
-    { code: 'bn-IN', name: 'বাংলা (Bengali)', flag: '🇧🇩', script: 'Bengali' },
-    { code: 'tr-TR', name: 'Türkçe (Turkish)', flag: '🇹🇷', script: 'Latin' },
-    { code: 'vi-VN', name: 'Tiếng Việt (Vietnamese)', flag: '🇻🇳', script: 'Latin' },
-    { code: 'id-ID', name: 'Bahasa Indonesia', flag: '🇮🇩', script: 'Latin' },
-    { code: 'nl-NL', name: 'Nederlands (Dutch)', flag: '🇳🇱', script: 'Latin' },
-    { code: 'pl-PL', name: 'Polski (Polish)', flag: '🇵🇱', script: 'Latin' },
-    { code: 'fa-IR', name: 'فارسی (Persian)', flag: '🇮🇷', script: 'Arabic' },
-    { code: 'sw-KE', name: 'Kiswahili (Swahili)', flag: '🇰🇪', script: 'Latin' },
-    { code: 'ta-IN', name: 'தமிழ் (Tamil)', flag: '🇮🇳', script: 'Tamil' },
-    { code: 'te-IN', name: 'తెలుగు (Telugu)', flag: '🇮🇳', script: 'Telugu' },
-    { code: 'ur-PK', name: 'اردو (Urdu)', flag: '🇵🇰', script: 'Arabic' },
-    { code: 'mr-IN', name: 'मराठी (Marathi)', flag: '🇮🇳', script: 'Devanagari' },
-    { code: 'uk-UA', name: 'Українська (Ukrainian)', flag: '🇺🇦', script: 'Cyrillic' },
-    { code: 'el-GR', name: 'Ελληνικά (Greek)', flag: '🇬🇷', script: 'Greek' },
-    { code: 'sv-SE', name: 'Svenska (Swedish)', flag: '🇸🇪', script: 'Latin' },
-    { code: 'he-IL', name: 'עברית (Hebrew)', flag: '🇮🇱', script: 'Hebrew' },
-    { code: 'th-TH', name: 'ไทย (Thai)', flag: '🇹🇭', script: 'Thai' },
-    { code: 'cs-CZ', name: 'Čeština (Czech)', flag: '🇨🇿', script: 'Latin' }
+  const DEFAULT_LANGUAGES = [
+    { code: 'en-US', iso: 'en', name: 'English (US)', nativeName: 'English (US)', flag: '🇺🇸', script: 'Latin', rtl: false },
+    { code: 'en-GB', iso: 'en', name: 'English (UK)', nativeName: 'English (UK)', flag: '🇬🇧', script: 'Latin', rtl: false },
+    { code: 'en-IN', iso: 'en', name: 'English (India)', nativeName: 'English (India)', flag: '🇮🇳', script: 'Latin', rtl: false },
+    { code: 'es-ES', iso: 'es', name: 'Spanish (Spain)', nativeName: 'Español (España)', flag: '🇪🇸', script: 'Latin', rtl: false },
+    { code: 'es-MX', iso: 'es', name: 'Spanish (Mexico)', nativeName: 'Español (México)', flag: '🇲🇽', script: 'Latin', rtl: false },
+    { code: 'zh-CN', iso: 'zh', name: 'Chinese (Mandarin)', nativeName: '简体中文', flag: '🇨🇳', script: 'Hanzi', rtl: false },
+    { code: 'zh-TW', iso: 'zh', name: 'Chinese (Traditional)', nativeName: '繁體中文', flag: '🇹🇼', script: 'Hanzi', rtl: false },
+    { code: 'hi-IN', iso: 'hi', name: 'Hindi', nativeName: 'हिन्दी', flag: '🇮🇳', script: 'Devanagari', rtl: false },
+    { code: 'ar-SA', iso: 'ar', name: 'Arabic', nativeName: 'العربية', flag: '🇸🇦', script: 'Arabic', rtl: true },
+    { code: 'fr-FR', iso: 'fr', name: 'French (France)', nativeName: 'Français', flag: '🇫🇷', script: 'Latin', rtl: false },
+    { code: 'ru-RU', iso: 'ru', name: 'Russian', nativeName: 'Русский', flag: '🇷🇺', script: 'Cyrillic', rtl: false },
+    { code: 'pt-BR', iso: 'pt', name: 'Portuguese (Brazil)', nativeName: 'Português (Brasil)', flag: '🇧🇷', script: 'Latin', rtl: false },
+    { code: 'de-DE', iso: 'de', name: 'German', nativeName: 'Deutsch', flag: '🇩🇪', script: 'Latin', rtl: false },
+    { code: 'ja-JP', iso: 'ja', name: 'Japanese', nativeName: '日本語', flag: '🇯🇵', script: 'Kanji/Kana', rtl: false },
+    { code: 'ko-KR', iso: 'ko', name: 'Korean', nativeName: '한국어', flag: '🇰🇷', script: 'Hangul', rtl: false },
+    { code: 'it-IT', iso: 'it', name: 'Italian', nativeName: 'Italiano', flag: '🇮🇹', script: 'Latin', rtl: false },
+    { code: 'bn-IN', iso: 'bn', name: 'Bengali', nativeName: 'বাংলা', flag: '🇧🇩', script: 'Bengali', rtl: false },
+    { code: 'tr-TR', iso: 'tr', name: 'Turkish', nativeName: 'Türkçe', flag: '🇹🇷', script: 'Latin', rtl: false },
+    { code: 'vi-VN', iso: 'vi', name: 'Vietnamese', nativeName: 'Tiếng Việt', flag: '🇻🇳', script: 'Latin', rtl: false },
+    { code: 'id-ID', iso: 'id', name: 'Indonesian', nativeName: 'Bahasa Indonesia', flag: '🇮🇩', script: 'Latin', rtl: false },
+    { code: 'nl-NL', iso: 'nl', name: 'Dutch', nativeName: 'Nederlands', flag: '🇳🇱', script: 'Latin', rtl: false },
+    { code: 'pl-PL', iso: 'pl', name: 'Polish', nativeName: 'Polski', flag: '🇵🇱', script: 'Latin', rtl: false },
+    { code: 'fa-IR', iso: 'fa', name: 'Persian', nativeName: 'فارسی', flag: '🇮🇷', script: 'Arabic', rtl: true },
+    { code: 'sw-KE', iso: 'sw', name: 'Swahili', nativeName: 'Kiswahili', flag: '🇰🇪', script: 'Latin', rtl: false },
+    { code: 'ta-IN', iso: 'ta', name: 'Tamil', nativeName: 'தமிழ்', flag: '🇮🇳', script: 'Tamil', rtl: false },
+    { code: 'te-IN', iso: 'te', name: 'Telugu', nativeName: 'తెలుగు', flag: '🇮🇳', script: 'Telugu', rtl: false },
+    { code: 'ur-PK', iso: 'ur', name: 'Urdu', nativeName: 'اردو', flag: '🇵🇰', script: 'Arabic', rtl: true },
+    { code: 'mr-IN', iso: 'mr', name: 'Marathi', nativeName: 'मराठी', flag: '🇮🇳', script: 'Devanagari', rtl: false },
+    { code: 'uk-UA', iso: 'uk', name: 'Ukrainian', nativeName: 'Українська', flag: '🇺🇦', script: 'Cyrillic', rtl: false },
+    { code: 'el-GR', iso: 'el', name: 'Greek', nativeName: 'Ελληνικά', flag: '🇬🇷', script: 'Greek', rtl: false },
+    { code: 'sv-SE', iso: 'sv', name: 'Swedish', nativeName: 'Svenska', flag: '🇸🇪', script: 'Latin', rtl: false },
+    { code: 'he-IL', iso: 'he', name: 'Hebrew', nativeName: 'עברית', flag: '🇮🇱', script: 'Hebrew', rtl: true },
+    { code: 'th-TH', iso: 'th', name: 'Thai', nativeName: 'ไทย', flag: '🇹🇭', script: 'Thai', rtl: false },
+    { code: 'cs-CZ', iso: 'cs', name: 'Czech', nativeName: 'Čeština', flag: '🇨🇿', script: 'Latin', rtl: false },
+    { code: 'ro-RO', iso: 'ro', name: 'Romanian', nativeName: 'Română', flag: '🇷🇴', script: 'Latin', rtl: false }
   ]
 
   const CS_MATH_PILLARS = [
@@ -56,84 +59,84 @@
       title: 'Algorithms & Complexity',
       icon: 'fa-sitemap',
       desc: 'Dijkstra, A*, Dynamic Programming, NP-completeness, Big-O, Master Theorem',
-      query: 'Explain Dijkstra shortest path algorithm and time complexity'
+      query: 'Explain Dijkstra algorithm'
     },
     {
       id: 'numerical_analysis',
       title: 'Numerical Computing & SVD',
       icon: 'fa-square-root-variable',
       desc: 'Singular Value Decomposition (SVD), QR, LU, Runge-Kutta RK4, FFT, IEEE 754',
-      query: 'What is Singular Value Decomposition (SVD) and how does it work?'
+      query: 'What is Singular Value Decomposition?'
     },
     {
       id: 'machine_learning_dl',
-      title: 'Deep Learning & Neural Networks',
+      title: 'Deep Learning & Transformers',
       icon: 'fa-network-wired',
-      desc: 'Transformers, RoPE, Attention, Backpropagation, AdamW, Diffusion Models, RLHF',
-      query: 'Explain the Transformer self-attention mechanism and backpropagation'
+      desc: 'Transformers, Attention, Backpropagation, Diffusion Models, RLHF',
+      query: 'Explain Transformer deep learning architecture'
     },
     {
       id: 'speech_ai_asr',
       title: 'Automatic Speech Recognition (ASR)',
       icon: 'fa-microphone-lines',
-      desc: 'OpenAI Whisper, Conformer, CTC Loss, Wav2Vec 2.0, Mel Spectrograms, WER',
-      query: 'How does OpenAI Whisper convert speech audio into text?'
+      desc: 'Whisper, CTC Loss, Wav2Vec, Mel Cepstrum, Spectrograms, WER',
+      query: 'How does speech recognition work?'
     },
     {
       id: 'theoretical_cs_discrete_math',
       title: 'Theoretical CS & Discrete Math',
       icon: 'fa-atom',
-      desc: 'Turing Machines, Chomsky Hierarchy, Halting Problem, Graph Theory, Modular Arithmetic',
-      query: 'What is a Turing Machine and how is the Halting Problem proved undecidable?'
+      desc: 'Turing Machines, Chomsky Hierarchy, Halting Problem, Graph Theory, Lambda Calculus',
+      query: 'What is a Turing machine?'
     },
     {
       id: 'systems_distributed_computing',
       title: 'OS & Distributed Systems',
       icon: 'fa-server',
-      desc: 'CAP Theorem, Raft Consensus, Virtual Memory, TLB, Deadlocks, Consistent Hashing',
-      query: 'Explain the CAP Theorem and how Raft consensus operates'
+      desc: 'CAP Theorem, Raft Consensus, Virtual Memory, Consistent Hashing, Docker',
+      query: 'Explain the CAP theorem'
     },
     {
       id: 'compilers_programming_languages',
       title: 'Compilers & Programming Languages',
       icon: 'fa-code',
-      desc: 'AST, LLVM IR, SSA Form, Recursive Descent, Type Inference, Garbage Collection',
-      query: 'How do compilers use Static Single Assignment (SSA) form for optimization?'
+      desc: 'AST, LLVM, SSA Form, Parsing, Type Inference, Garbage Collection',
+      query: 'How does static single-assignment form work?'
     },
     {
       id: 'cryptography_security',
       title: 'Modern Cryptography & Security',
       icon: 'fa-shield-halved',
-      desc: 'RSA, Elliptic Curve (ECC), AES-GCM, Zero-Knowledge Proofs, Post-Quantum Kyber',
-      query: 'How does RSA encryption work mathematically with Euler totient?'
+      desc: 'RSA, Elliptic Curve (ECC), AES, Zero-Knowledge Proofs, Post-Quantum',
+      query: 'How does RSA cryptosystem work?'
     },
     {
       id: 'calculus_linear_algebra_prob',
       title: 'Calculus, Linear Algebra & Probability',
       icon: 'fa-chart-line',
-      desc: 'Jacobian, Hessian, Eigenvalues, Bayes Theorem, Markov Chains, Central Limit Theorem',
-      query: 'What is the Jacobian and Hessian matrix in multivariable optimization?'
+      desc: 'Jacobian, Hessian, Eigenvalues, Bayes Theorem, Markov Chains, CLT',
+      query: 'What are eigenvalues and eigenvectors?'
     },
     {
       id: 'gpu_hpc_computing',
       title: 'GPU Computing & HPC',
       icon: 'fa-microchip',
-      desc: 'CUDA Kernels, Warps, Shared Memory, OpenMP, MPI, BLAS GEMM, Tensor Cores',
-      query: 'How does the CUDA warp execution model work on GPUs?'
+      desc: 'CUDA, MPI, OpenMP, BLAS, SIMD, Pipelining, Cache Architecture',
+      query: 'What is CUDA?'
     },
     {
       id: 'database_vector_search',
       title: 'Database Internals & Vector Search',
       icon: 'fa-database',
-      desc: 'B+ Trees, LSM Trees, ACID, MVCC, Approximate Nearest Neighbor (HNSW), Cosine Distance',
-      query: 'What is the difference between B+ trees and Log-Structured Merge (LSM) trees?'
+      desc: 'B+ Trees, LSM Trees, ACID, MVCC, Nearest Neighbor Search, Cosine Similarity',
+      query: 'Compare B+ tree and LSM tree'
     },
     {
       id: 'nlp_large_language_models',
       title: 'NLP & Large Language Models',
       icon: 'fa-robot',
-      desc: 'BPE Tokenization, FlashAttention, KV Caching, RAG, Quantization (GGUF/AWQ), LoRA',
-      query: 'Explain Byte-Pair Encoding (BPE) tokenization and KV caching in LLMs'
+      desc: 'BPE Tokenization, RAG, BM25, Word Embeddings, BERT, Fine-Tuning',
+      query: 'What is retrieval-augmented generation?'
     }
   ]
 
@@ -145,7 +148,7 @@
     { flag: '🇩🇪', lang: 'German', text: 'Wie funktioniert die RSA Verschlüsselung?' },
     { flag: '🇷🇺', lang: 'Russian', text: 'Что такое машина Тьюринга и проблема остановки?' },
     { flag: '🇯🇵', lang: 'Japanese', text: '特異値分解（SVD）とは何ですか？' },
-    { flag: '🇺🇸', lang: 'English', text: 'Explain Singular Value Decomposition (SVD) and low-rank approximation.' }
+    { flag: '🇺🇸', lang: 'English', text: 'Compare Quicksort and Merge sort' }
   ]
 
   const PRESET_WER_EXAMPLES = [
@@ -166,86 +169,146 @@
     }
   ]
 
-  // Markdown-lite formatter
-  function renderFormattedText(text) {
-    if (!text) return null
-    const lines = String(text).split('\n')
-    return lines.map((line, lineIdx) => {
-      if (!line.trim()) {
-        return e('div', { key: lineIdx, className: 'h-2' })
+  const WELCOME_MESSAGE = {
+    id: 'welcome',
+    role: 'bot',
+    content:
+      'Welcome to **VoxASR** — Commercial Multilingual Voice & Text AI Assistant for **Computer Science** and **Mathematical Computing**!\n\n- **35 Certified World Languages**: Speak or type in any language (English, Spanish, Mandarin, Hindi, Arabic, French, German, Japanese, Russian, Romanian, etc.) with automatic RTL support.\n- **Hybrid Extractive + Self-Learning Engine**: Answers directly from our indexed CS/Math knowledge pool, evaluates math expressions (`sqrt(144) + 2^10`), compares algorithms (`Compare Dijkstra and A*`), and learns unknown topics live from Wikipedia & ArXiv!\n- **WER Benchmarking Lab**: Measure Speech-to-Text accuracy live with your microphone.',
+    intentTag: 'greeting',
+    intentTitle: 'Multilingual CS/Math Assistant Ready',
+    confidence: 1.0,
+    detectedLanguage: { lang: 'en-US', label: 'English', script: 'Latin' },
+    followUps: [
+      'What is Singular Value Decomposition?',
+      'Compare B+ tree and LSM tree',
+      'Calculate 2^10 + sqrt(144)',
+      'What languages do you understand?'
+    ]
+  }
+
+  function renderInline(line, keyPrefix) {
+    const parts = String(line)
+      .split(/(\*\*[^*]+\*\*|`[^`]+`|\$[^$]+\$|_[^_]+_|https?:\/\/[^\s)]+)/g)
+      .filter(Boolean)
+
+    return parts.map((part, idx) => {
+      const k = `${keyPrefix}-${idx}`
+      if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+        return e('strong', { key: k, className: 'font-semibold text-indigo-200' }, part.slice(2, -2))
       }
-      const isBullet = /^(\s*[-*]|\s*\d+\.)\s+/.test(line)
-      const isHeader = /^###?\s+/.test(line)
-      const cleanLine = isBullet
-        ? line.replace(/^(\s*[-*]|\s*\d+\.)\s+/, '')
-        : isHeader
-        ? line.replace(/^###?\s+/, '')
-        : line
-
-      const parts = cleanLine.split(/(\*\*[^*]+\*\*|`[^`]+`|\$[^$]+\$)/g).filter(Boolean)
-      const inlineNodes = parts.map((part, idx) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return e('strong', { key: idx, className: 'font-semibold text-indigo-200' }, part.slice(2, -2))
-        }
-        if (part.startsWith('`') && part.endsWith('`')) {
-          return e(
-            'code',
-            {
-              key: idx,
-              className: 'font-mono text-xs bg-slate-800/90 text-emerald-300 px-1.5 py-0.5 rounded border border-slate-700'
-            },
-            part.slice(1, -1)
-          )
-        }
-        if (part.startsWith('$') && part.endsWith('$')) {
-          return e(
-            'span',
-            { key: idx, className: 'font-mono text-xs text-amber-300 bg-amber-950/40 px-1 py-0.5 rounded' },
-            part.slice(1, -1)
-          )
-        }
-        return part
-      })
-
-      if (isHeader) {
-        return e('h4', { key: lineIdx, className: 'text-sm font-bold text-indigo-300 mt-2 mb-1' }, inlineNodes)
-      }
-
-      if (isBullet) {
+      if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
         return e(
-          'div',
-          { key: lineIdx, className: 'flex items-start gap-2 pl-1 my-1 text-slate-200 text-xs sm:text-sm' },
-          e('span', { className: 'text-indigo-400 mt-1 text-xs' }, '●'),
-          e('span', { className: 'leading-relaxed' }, inlineNodes)
+          'code',
+          {
+            key: k,
+            className: 'font-mono text-xs bg-slate-800/90 text-emerald-300 px-1.5 py-0.5 rounded border border-slate-700'
+          },
+          part.slice(1, -1)
         )
       }
-
-      return e('p', { key: lineIdx, className: 'leading-relaxed my-0.5 text-slate-200 text-xs sm:text-sm' }, inlineNodes)
+      if (part.startsWith('$') && part.endsWith('$') && part.length > 2) {
+        return e(
+          'span',
+          { key: k, className: 'font-mono text-xs text-amber-300 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-500/20' },
+          part.slice(1, -1)
+        )
+      }
+      if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
+        return e('em', { key: k, className: 'italic text-slate-300' }, part.slice(1, -1))
+      }
+      if (/^https?:\/\//.test(part)) {
+        return e(
+          'a',
+          {
+            key: k,
+            href: part,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            className: 'text-indigo-400 hover:text-indigo-300 underline break-all'
+          },
+          part
+        )
+      }
+      return part
     })
+  }
+
+  function renderFormattedText(text) {
+    if (!text) return null
+    const segments = String(text).split(/(```[\s\S]*?```)/g)
+    const blocks = []
+
+    segments.forEach((seg, segIdx) => {
+      if (seg.startsWith('```') && seg.endsWith('```')) {
+        const inner = seg.slice(3, -3)
+        const firstNewline = inner.indexOf('\n')
+        const lang = firstNewline > -1 ? inner.slice(0, firstNewline).trim() : ''
+        const code = firstNewline > -1 ? inner.slice(firstNewline + 1) : inner
+        blocks.push(
+          e(
+            'div',
+            { key: `code-${segIdx}`, className: 'my-2 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950' },
+            lang && e('div', { className: 'px-3 py-1 bg-slate-900 text-[10px] font-mono text-slate-400 border-b border-slate-800 uppercase' }, lang),
+            e('pre', { className: 'p-3 text-xs font-mono text-emerald-300 overflow-x-auto leading-relaxed' }, code)
+          )
+        )
+        return
+      }
+
+      const lines = seg.split('\n')
+      lines.forEach((line, lineIdx) => {
+        const k = `${segIdx}-${lineIdx}`
+        if (!line.trim()) {
+          blocks.push(e('div', { key: k, className: 'h-1.5' }))
+          return
+        }
+        if (/^>\s*/.test(line)) {
+          blocks.push(
+            e(
+              'blockquote',
+              { key: k, className: 'border-l-2 border-indigo-500/60 pl-3 py-1 my-1.5 text-xs text-slate-300 bg-slate-950/50 rounded-r-lg' },
+              renderInline(line.replace(/^>\s*/, ''), k)
+            )
+          )
+          return
+        }
+        const isBullet = /^(\s*[-*]|\s*\d+\.)\s+/.test(line)
+        const isHeader = /^#{1,4}\s+/.test(line)
+        const cleanLine = isBullet
+          ? line.replace(/^(\s*[-*]|\s*\d+\.)\s+/, '')
+          : isHeader
+          ? line.replace(/^#{1,4}\s+/, '')
+          : line
+
+        if (isHeader) {
+          blocks.push(e('h4', { key: k, className: 'text-sm font-bold text-indigo-300 mt-2 mb-1' }, renderInline(cleanLine, k)))
+          return
+        }
+        if (isBullet) {
+          blocks.push(
+            e(
+              'div',
+              { key: k, className: 'flex items-start gap-2 pl-1 my-1 text-slate-200 text-xs sm:text-sm' },
+              e('span', { className: 'text-indigo-400 mt-1 text-[10px]' }, '●'),
+              e('span', { className: 'leading-relaxed' }, renderInline(cleanLine, k))
+            )
+          )
+          return
+        }
+        blocks.push(e('p', { key: k, className: 'leading-relaxed my-0.5 text-slate-200 text-xs sm:text-sm' }, renderInline(cleanLine, k)))
+      })
+    })
+
+    return blocks
   }
 
   function App() {
     const [activeTab, setActiveTab] = useState('chat') // 'chat' | 'knowledge' | 'wer' | 'model'
+    const [languages, setLanguages] = useState(DEFAULT_LANGUAGES)
     const [sessionId, setSessionId] = useState(() => `sess_${Date.now().toString(36)}`)
     const [sessions, setSessions] = useState([])
-    const [messages, setMessages] = useState([
-      {
-        id: 'welcome',
-        role: 'bot',
-        content:
-          'Welcome to **VoxASR** — Certified Multilingual AI Assistant for **Computer Science** and **Mathematical Computing**!\n\n- **Certified World Languages**: Speak or type in 35 certified languages (English, Spanish, Mandarin, Hindi, French, German, Russian, Arabic, Japanese, Portuguese, etc.).\n- **Comprehensive Knowledge Pool**: Inquire about Algorithms, Deep Learning, SVD/QR decompositions, Cryptography, Distributed Systems, Compiler Theory, or Speech AI.\n- **Automated Web Scraping & Training**: My knowledge pool is continuously updated via Wikipedia and ArXiv scraping with ML-DL model retraining!',
-        intentTag: 'greeting',
-        intentTitle: 'Multilingual CS/Math Assistant Ready',
-        confidence: 1.0,
-        detectedLanguage: { lang: 'en-US', label: 'English', script: 'Latin' },
-        followUps: [
-          'What is Singular Value Decomposition (SVD)?',
-          'Explain Dijkstra shortest path algorithm',
-          'How does OpenAI Whisper perform Speech-to-Text?',
-          'What is P vs NP in computational complexity?'
-        ]
-      }
-    ])
+    const [sessionSearch, setSessionSearch] = useState('')
+    const [messages, setMessages] = useState([WELCOME_MESSAGE])
 
     const [inputText, setInputText] = useState('')
     const [interimTranscript, setInterimTranscript] = useState('')
@@ -253,45 +316,74 @@
     const [asrLang, setAsrLang] = useState('en-US')
     const [autoSendVoice, setAutoSendVoice] = useState(true)
     const [ttsEnabled, setTtsEnabled] = useState(false)
+    const [autoLearn, setAutoLearn] = useState(true)
     const [speechSupported, setSpeechSupported] = useState(true)
     const [micError, setMicError] = useState('')
     const [isSending, setIsSending] = useState(false)
     const [lastAsrConfidence, setLastAsrConfidence] = useState(null)
+    const [copiedId, setCopiedId] = useState(null)
+    const [expandedDetails, setExpandedDetails] = useState({})
 
-    // Audio visualizer bars
     const [audioBars, setAudioBars] = useState(new Array(20).fill(6))
 
-    // Model & Knowledge status
     const [modelInfo, setModelInfo] = useState(null)
     const [knowledgeStatus, setKnowledgeStatus] = useState(null)
+    const [analytics, setAnalytics] = useState(null)
     const [isUpgrading, setIsUpgrading] = useState(false)
     const [upgradeMessage, setUpgradeMessage] = useState('')
     const [customScrapeTopic, setCustomScrapeTopic] = useState('')
     const [customScrapeLang, setCustomScrapeLang] = useState('en')
+    const [kbSearchQuery, setKbSearchQuery] = useState('')
+    const [kbSearchResults, setKbSearchResults] = useState([])
+    const [kbSearching, setKbSearching] = useState(false)
 
     // WER Lab state
     const [werRef, setWerRef] = useState(PRESET_WER_EXAMPLES[0].ref)
     const [werHyp, setWerHyp] = useState(PRESET_WER_EXAMPLES[0].hyp)
     const [werResult, setWerResult] = useState(null)
+    const [werHistory, setWerHistory] = useState([])
     const [isListeningWer, setIsListeningWer] = useState(false)
 
     const recognitionRef = useRef(null)
+    const werRecognitionRef = useRef(null)
     const audioCtxRef = useRef(null)
     const animFrameRef = useRef(null)
     const mediaStreamRef = useRef(null)
     const chatBottomRef = useRef(null)
+    const upgradePollRef = useRef(null)
+    const isSendingRef = useRef(false)
+    const asrLangRef = useRef(asrLang)
+
+    useEffect(() => {
+      asrLangRef.current = asrLang
+    }, [asrLang])
+
+    useEffect(() => {
+      isSendingRef.current = isSending
+    }, [isSending])
 
     useEffect(() => {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition
       if (!SR) setSpeechSupported(false)
 
+      fetchLanguages()
       fetchModelInfo()
       fetchKnowledgeStatus()
       fetchSessions()
-      runWerEvaluation(PRESET_WER_EXAMPLES[0].ref, PRESET_WER_EXAMPLES[0].hyp)
+      fetchAnalytics()
+      fetchWerHistory()
+      runWerEvaluation(PRESET_WER_EXAMPLES[0].ref, PRESET_WER_EXAMPLES[0].hyp, false)
+      searchKnowledge('')
 
       return () => {
         stopAudioVisualizer()
+        if (upgradePollRef.current) clearInterval(upgradePollRef.current)
+        if (recognitionRef.current) {
+          try { recognitionRef.current.stop() } catch (_) {}
+        }
+        if (werRecognitionRef.current) {
+          try { werRecognitionRef.current.stop() } catch (_) {}
+        }
         if (window.speechSynthesis) window.speechSynthesis.cancel()
       }
     }, [])
@@ -301,6 +393,18 @@
         chatBottomRef.current.scrollIntoView({ behavior: 'smooth' })
       }
     }, [messages, interimTranscript])
+
+    const currentLangMeta = languages.find((l) => l.code === asrLang) || { rtl: false }
+
+    async function fetchLanguages() {
+      try {
+        const res = await fetch('/api/languages')
+        const data = await res.json()
+        if (data.ok && Array.isArray(data.languages) && data.languages.length > 0) {
+          setLanguages(data.languages)
+        }
+      } catch (_) {}
+    }
 
     async function fetchModelInfo() {
       try {
@@ -316,8 +420,16 @@
         const data = await res.json()
         if (data.ok) {
           setKnowledgeStatus(data)
-          if (data.is_upgrading) setIsUpgrading(true)
+          setIsUpgrading(Boolean(data.is_upgrading))
         }
+      } catch (_) {}
+    }
+
+    async function fetchAnalytics() {
+      try {
+        const res = await fetch('/api/analytics')
+        const data = await res.json()
+        if (data.ok) setAnalytics(data.analytics)
       } catch (_) {}
     }
 
@@ -329,93 +441,202 @@
       } catch (_) {}
     }
 
+    async function fetchWerHistory() {
+      try {
+        const res = await fetch('/api/wer/history')
+        const data = await res.json()
+        if (data.ok) setWerHistory(data.history || [])
+      } catch (_) {}
+    }
+
+    async function searchKnowledge(q) {
+      setKbSearching(true)
+      try {
+        const res = await fetch(`/api/knowledge/search?q=${encodeURIComponent(q)}&limit=9`)
+        const data = await res.json()
+        if (data.ok) setKbSearchResults(data.results || [])
+      } catch (_) {
+      } finally {
+        setKbSearching(false)
+      }
+    }
+
+    function startNewChat() {
+      if (window.speechSynthesis) window.speechSynthesis.cancel()
+      setSessionId(`sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`)
+      setMessages([WELCOME_MESSAGE])
+      setInputText('')
+      setInterimTranscript('')
+      setLastAsrConfidence(null)
+    }
+
+    async function loadSession(id) {
+      try {
+        const res = await fetch(`/api/sessions/${encodeURIComponent(id)}`)
+        const data = await res.json()
+        if (data.ok) {
+          setSessionId(id)
+          if (data.messages && data.messages.length > 0) {
+            setMessages(
+              data.messages.map((m) => ({
+                id: m.id,
+                dbMessageId: m.role === 'bot' ? m.id : null,
+                role: m.role,
+                content: m.content,
+                inputMode: m.input_mode,
+                asrConfidence: m.asr_confidence,
+                intentTag: m.intent_tag,
+                confidence: m.intent_confidence,
+                detectedLanguage: m.detected_language ? { lang: m.detected_language, label: m.detected_language } : null,
+                sourceTitle: m.source_title,
+                sourceUrl: m.source_url,
+                latencyMs: m.latency_ms,
+                feedback: m.feedback
+              }))
+            )
+          } else {
+            setMessages([WELCOME_MESSAGE])
+          }
+          setActiveTab('chat')
+        }
+      } catch (_) {}
+    }
+
+    async function removeSession(id, ev) {
+      ev.stopPropagation()
+      try {
+        await fetch(`/api/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' })
+        setSessions((prev) => prev.filter((s) => s.id !== id))
+        if (id === sessionId) startNewChat()
+      } catch (_) {}
+    }
+
     async function triggerAutoUpgrade() {
+      if (upgradePollRef.current) clearInterval(upgradePollRef.current)
       setIsUpgrading(true)
-      setUpgradeMessage('Triggering automated web scraping (Wikipedia & ArXiv) and ML-DL retraining...')
+      setUpgradeMessage('Initiating live ArXiv & Wikipedia knowledge harvest...')
       try {
         const res = await fetch('/api/knowledge/upgrade', { method: 'POST' })
         const data = await res.json()
         if (data.ok) {
-          setUpgradeMessage('Scraping articles and retraining multi-class Softmax neural weights in background...')
-          // Poll every 3s
-          const interval = setInterval(async () => {
-            const pollRes = await fetch('/api/knowledge/status')
-            const pollData = await pollRes.json()
-            if (pollData.ok) {
-              setKnowledgeStatus(pollData)
-              if (!pollData.is_upgrading) {
-                clearInterval(interval)
-                setIsUpgrading(false)
-                setUpgradeMessage('Knowledge base upgraded & model weights reloaded successfully!')
-                fetchModelInfo()
-              } else {
-                setUpgradeMessage(`Upgrading: ${pollData.last_progress || 'Processing...'}`)
+          setUpgradeMessage('Harvesting latest CS/Math papers & articles in background...')
+          upgradePollRef.current = setInterval(async () => {
+            try {
+              const pollRes = await fetch('/api/knowledge/status')
+              const pollData = await pollRes.json()
+              if (pollData.ok) {
+                setKnowledgeStatus(pollData)
+                if (!pollData.is_upgrading) {
+                  clearInterval(upgradePollRef.current)
+                  upgradePollRef.current = null
+                  setIsUpgrading(false)
+                  setUpgradeMessage(pollData.last_progress || 'Knowledge pool upgraded successfully!')
+                  fetchModelInfo()
+                  fetchAnalytics()
+                  searchKnowledge(kbSearchQuery)
+                } else {
+                  setUpgradeMessage(pollData.last_progress || 'Upgrading...')
+                }
               }
+            } catch (pollErr) {
+              clearInterval(upgradePollRef.current)
+              upgradePollRef.current = null
+              setIsUpgrading(false)
+              setUpgradeMessage(`Status polling interrupted: ${pollErr.message}`)
             }
-          }, 3000)
+          }, 2000)
         } else {
           setIsUpgrading(false)
-          setUpgradeMessage(data.error || 'Upgrade failed.')
+          setUpgradeMessage(data.error || 'Upgrade request rejected.')
         }
       } catch (err) {
         setIsUpgrading(false)
-        setUpgradeMessage('Could not connect to upgrade daemon (Port 3001). Run `python webapp/training/upgrade_server.py`!')
+        setUpgradeMessage(`Network error: ${err.message}`)
       }
     }
 
     async function triggerOnDemandScrape() {
-      if (!customScrapeTopic.trim()) return
+      const topic = customScrapeTopic.trim()
+      if (!topic || isUpgrading) return
       setIsUpgrading(true)
-      setUpgradeMessage(`Scraping on-demand article for "${customScrapeTopic}"...`)
+      setUpgradeMessage(`Scraping Wikipedia & ArXiv for "${topic}"...`)
       try {
         const res = await fetch('/api/knowledge/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic: customScrapeTopic.trim(), lang: customScrapeLang })
+          body: JSON.stringify({ topic, lang: customScrapeLang })
         })
         const data = await res.json()
         if (data.ok) {
-          setUpgradeMessage(`Ingested "${customScrapeTopic}". Retraining model in background...`)
-          setTimeout(() => {
-            fetchKnowledgeStatus()
-            fetchModelInfo()
-            setIsUpgrading(false)
-          }, 4000)
+          setUpgradeMessage(data.message || `Ingested "${topic}" into Knowledge Pool!`)
+          setCustomScrapeTopic('')
+          await Promise.all([fetchKnowledgeStatus(), fetchModelInfo(), fetchAnalytics()])
+          searchKnowledge(topic)
         } else {
-          setIsUpgrading(false)
           setUpgradeMessage(data.error || 'Scrape failed.')
         }
       } catch (err) {
+        setUpgradeMessage(`Network error: ${err.message}`)
+      } finally {
         setIsUpgrading(false)
-        setUpgradeMessage('Could not connect to upgrade service on Port 3001.')
       }
     }
 
-    function speakReply(rawText) {
-      if (!ttsEnabled || !window.speechSynthesis) return
+    function speakReply(rawText, langOverride) {
+      if (!window.speechSynthesis) return
       window.speechSynthesis.cancel()
       const clean = String(rawText)
+        .replace(/```[\s\S]*?```/g, ' code block ')
+        .replace(/https?:\/\/\S+/g, '')
         .replace(/\*\*([^*]+)\*\*/g, '$1')
         .replace(/`([^`]+)`/g, '$1')
         .replace(/\$([^$]+)\$/g, '$1')
         .replace(/[#>*_]/g, '')
       const utter = new SpeechSynthesisUtterance(clean)
-      utter.lang = asrLang
+      utter.lang = langOverride || asrLangRef.current
       utter.rate = 1.02
       window.speechSynthesis.speak(utter)
     }
 
+    async function sendFeedback(msg, rating) {
+      if (!msg.dbMessageId) return
+      try {
+        const res = await fetch('/api/chat/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageId: msg.dbMessageId, feedback: rating })
+        })
+        const data = await res.json()
+        if (data.ok) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === msg.id ? { ...m, feedback: rating } : m))
+          )
+          fetchAnalytics()
+        }
+      } catch (_) {}
+    }
+
+    function copyText(id, text) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+          setCopiedId(id)
+          setTimeout(() => setCopiedId(null), 1500)
+        }).catch(() => {})
+      }
+    }
+
     async function sendMessage(textToSend, mode = 'text', asrConf = null) {
-      const msg = (textToSend || inputText).trim()
-      if (!msg || isSending) return
+      const msg = (textToSend !== undefined ? textToSend : inputText).trim()
+      if (!msg || isSendingRef.current) return
 
       setInputText('')
       setInterimTranscript('')
       setIsSending(true)
+      isSendingRef.current = true
 
       const userMsgId = `usr_${Date.now()}`
-      const newMessages = [
-        ...messages,
+      setMessages((prev) => [
+        ...prev,
         {
           id: userMsgId,
           role: 'user',
@@ -423,8 +644,7 @@
           inputMode: mode,
           asrConfidence: asrConf
         }
-      ]
-      setMessages(newMessages)
+      ])
 
       try {
         const res = await fetch('/api/chat', {
@@ -434,7 +654,9 @@
             sessionId,
             message: msg,
             inputMode: mode,
-            asrConfidence: asrConf
+            asrConfidence: asrConf,
+            asrLang: asrLangRef.current,
+            autoLearn
           })
         })
         const data = await res.json()
@@ -444,6 +666,7 @@
             ...prev,
             {
               id: `bot_${Date.now()}`,
+              dbMessageId: data.botMessageId || null,
               role: 'bot',
               content: botResp.reply,
               intentTag: botResp.intentTag,
@@ -453,11 +676,28 @@
               followUps: botResp.followUps || [],
               topPredictions: botResp.topPredictions || [],
               matchedTokens: botResp.matchedTokens || [],
+              sources: botResp.sources || [],
+              learnedNew: Boolean(botResp.learnedNew),
               latencyMs: botResp.latencyMs
             }
           ])
-          speakReply(botResp.reply)
+          if (ttsEnabled) {
+            speakReply(botResp.reply, botResp.detectedLanguage?.lang || asrLangRef.current)
+          }
           fetchSessions()
+          fetchAnalytics()
+          if (botResp.learnedNew) fetchKnowledgeStatus()
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `err_${Date.now()}`,
+              role: 'bot',
+              content: data.error || 'Request could not be processed.',
+              intentTag: 'error',
+              confidence: 0
+            }
+          ])
         }
       } catch (err) {
         setMessages((prev) => [
@@ -472,10 +712,10 @@
         ])
       } finally {
         setIsSending(false)
+        isSendingRef.current = false
       }
     }
 
-    // Audio visualizer bars
     async function startAudioVisualizer() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -506,6 +746,7 @@
 
     function stopAudioVisualizer() {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+      animFrameRef.current = null
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((t) => t.stop())
         mediaStreamRef.current = null
@@ -535,7 +776,7 @@
       if (window.speechSynthesis) window.speechSynthesis.cancel()
 
       const recognition = new SR()
-      recognition.lang = asrLang
+      recognition.lang = asrLangRef.current
       recognition.interimResults = true
       recognition.continuous = false
 
@@ -565,13 +806,20 @@
           if (autoSendVoice) {
             sendMessage(finalTxt, 'voice', conf)
           } else {
-            setInputText(finalTxt)
+            setInputText((prev) => (prev ? `${prev} ${finalTxt}` : finalTxt))
           }
         }
       }
 
       recognition.onerror = (event) => {
-        setMicError(`Microphone error: ${event.error}`)
+        const errCode = event.error || 'unknown'
+        const friendly =
+          errCode === 'not-allowed'
+            ? 'Microphone permission denied. Please allow microphone access in browser settings.'
+            : errCode === 'no-speech'
+            ? 'No speech detected. Please try speaking closer to your microphone.'
+            : `Microphone error: ${errCode}`
+        setMicError(friendly)
         setIsListening(false)
         stopAudioVisualizer()
       }
@@ -587,25 +835,74 @@
         recognition.start()
       } catch (err) {
         setMicError(err.message)
+        setIsListening(false)
+        stopAudioVisualizer()
       }
     }
 
-    async function runWerEvaluation(ref, hyp) {
+    function toggleWerMicrophone() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (!SR) {
+        setMicError('Web Speech API is not supported in this browser.')
+        return
+      }
+      if (isListeningWer && werRecognitionRef.current) {
+        werRecognitionRef.current.stop()
+        setIsListeningWer(false)
+        return
+      }
+      const recognition = new SR()
+      recognition.lang = asrLangRef.current
+      recognition.interimResults = false
+      recognition.continuous = false
+      recognition.onstart = () => setIsListeningWer(true)
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results).map((r) => r[0].transcript).join(' ').trim()
+        if (transcript) {
+          setWerHyp(transcript)
+          runWerEvaluation(werRef, transcript, true)
+        }
+      }
+      recognition.onerror = () => setIsListeningWer(false)
+      recognition.onend = () => setIsListeningWer(false)
+      werRecognitionRef.current = recognition
+      try {
+        recognition.start()
+      } catch (_) {
+        setIsListeningWer(false)
+      }
+    }
+
+    async function runWerEvaluation(ref, hyp, persist = true) {
+      if (!String(ref || '').trim()) return
       try {
         const res = await fetch('/api/wer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reference: ref, hypothesis: hyp })
+          body: JSON.stringify({ reference: ref, hypothesis: hyp, language: asrLangRef.current, persist })
         })
         const data = await res.json()
-        if (data.ok) setWerResult(data.metrics)
+        if (data.ok) {
+          setWerResult(data.metrics)
+          if (persist) {
+            fetchWerHistory()
+            fetchAnalytics()
+          }
+        }
+      } catch (_) {}
+    }
+
+    async function clearWerLog() {
+      try {
+        await fetch('/api/wer/history', { method: 'DELETE' })
+        setWerHistory([])
       } catch (_) {}
     }
 
     // ==================== HEADER ====================
     const headerNode = e(
       'header',
-      { className: 'border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-30 px-4 py-3' },
+      { className: 'border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-30 px-4 py-3' },
       e(
         'div',
         { className: 'max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3' },
@@ -629,18 +926,22 @@
               'div',
               { className: 'flex items-center gap-2 text-xs text-slate-400' },
               e('span', { className: 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse' }),
-              e('span', null, '35 Certified Languages ● 12 CS/Math Pillars ● Web Scraping Upgraded')
+              e(
+                'span',
+                null,
+                `${languages.length} Certified Languages • ${knowledgeStatus?.total_scraped_articles || 0} KB Articles • Live Web Learning`
+              )
             )
           )
         ),
         e(
           'nav',
-          { className: 'flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800' },
+          { className: 'flex flex-wrap items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800' },
           [
             { id: 'chat', icon: 'fa-microphone-lines', label: 'ASR Voice Chat' },
-            { id: 'knowledge', icon: 'fa-database', label: 'Knowledge Base & Auto-Upgrade' },
+            { id: 'knowledge', icon: 'fa-database', label: 'Knowledge Pool' },
             { id: 'wer', icon: 'fa-scale-balanced', label: 'WER Lab' },
-            { id: 'model', icon: 'fa-chart-pie', label: 'Model Inspector' }
+            { id: 'model', icon: 'fa-chart-pie', label: 'Analytics & Model' }
           ].map((tab) =>
             e(
               'button',
@@ -661,27 +962,32 @@
       )
     )
 
+    const filteredSessions = sessions.filter((s) =>
+      !sessionSearch.trim() || String(s.title || '').toLowerCase().includes(sessionSearch.toLowerCase())
+    )
+
     // ==================== TAB 1: VOICE CHAT ====================
     const chatView = e(
       'div',
       { className: 'grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-7xl mx-auto p-4 lg:p-6 w-full flex-1' },
-      // Left Sidebar: Speech Locale & Certified Languages
+      // Left Sidebar
       e(
         'aside',
         { className: 'lg:col-span-3 space-y-4' },
+        // Speech Settings
         e(
           'div',
-          { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-3.5' },
+          { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-3' },
           e(
             'div',
             { className: 'flex items-center justify-between' },
-            e('h2', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Speech Settings'),
-            e('span', { className: 'text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' }, '35 Languages')
+            e('h2', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'Speech & AI Settings'),
+            e('span', { className: 'text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' }, `${languages.length} Langs`)
           ),
           e(
             'div',
             { className: 'space-y-1' },
-            e('label', { className: 'text-xs text-slate-400 block' }, 'Certified Speech Recognition Locale:'),
+            e('label', { className: 'text-xs text-slate-400 block' }, 'Speech Recognition Locale:'),
             e(
               'select',
               {
@@ -689,7 +995,7 @@
                 onChange: (ev) => setAsrLang(ev.target.value),
                 className: 'w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500'
               },
-              CERTIFIED_LANGUAGES.map((l) =>
+              languages.map((l) =>
                 e('option', { key: l.code, value: l.code }, `${l.flag} ${l.name} (${l.code})`)
               )
             )
@@ -708,7 +1014,7 @@
           e(
             'label',
             { className: 'flex items-center justify-between text-xs text-slate-300 cursor-pointer' },
-            e('span', null, 'Text-to-Speech (TTS) Bot Voice'),
+            e('span', null, 'Auto-speak Bot Replies (TTS)'),
             e('input', {
               type: 'checkbox',
               checked: ttsEnabled,
@@ -717,27 +1023,126 @@
             })
           ),
           e(
+            'label',
+            { className: 'flex items-center justify-between text-xs text-slate-300 cursor-pointer' },
+            e('span', null, 'Live Web Learning (Wiki/ArXiv)'),
+            e('input', {
+              type: 'checkbox',
+              checked: autoLearn,
+              onChange: (ev) => setAutoLearn(ev.target.checked),
+              className: 'accent-indigo-500 rounded'
+            })
+          ),
+          e(
             'div',
-            { className: 'pt-2 border-t border-slate-800' },
+            { className: 'pt-2 border-t border-slate-800 space-y-2' },
             e(
               'button',
               {
                 onClick: toggleMicrophone,
+                disabled: !speechSupported,
                 className: `w-full py-2.5 px-3 rounded-xl font-medium text-xs flex items-center justify-center gap-2 transition ${
-                  isListening
-                    ? 'bg-rose-600 text-white animate-pulse shadow-lg shadow-rose-600/30'
+                  !speechSupported
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    : isListening
+                    ? 'bg-rose-600 text-white mic-recording-pulse shadow-lg shadow-rose-600/30'
                     : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/25'
                 }`
               },
               e('i', { className: `fas ${isListening ? 'fa-microphone-slash' : 'fa-microphone'}` }),
-              isListening ? 'Stop Listening...' : 'Click to Speak Live'
+              !speechSupported
+                ? 'Speech API Unavailable'
+                : isListening
+                ? 'Stop Listening...'
+                : 'Click to Speak Live'
+            ),
+            lastAsrConfidence !== null && e(
+              'div',
+              { className: 'text-[11px] text-center text-emerald-400' },
+              `Last ASR Confidence: ${Math.round(lastAsrConfidence * 100)}%`
+            )
+          )
+        ),
+        // Sessions History
+        e(
+          'div',
+          { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2.5' },
+          e(
+            'div',
+            { className: 'flex items-center justify-between' },
+            e('h3', { className: 'text-xs font-semibold text-slate-400 uppercase tracking-wider' }, 'Conversations'),
+            e(
+              'button',
+              {
+                onClick: startNewChat,
+                className: 'px-2 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-[11px] font-medium transition'
+              },
+              '+ New Chat'
+            )
+          ),
+          e('input', {
+            type: 'text',
+            value: sessionSearch,
+            onChange: (ev) => setSessionSearch(ev.target.value),
+            placeholder: 'Filter history...',
+            className: 'w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500'
+          }),
+          e(
+            'div',
+            { className: 'space-y-1 max-h-44 overflow-y-auto pr-1' },
+            filteredSessions.length === 0
+              ? e('div', { className: 'text-[11px] text-slate-500 py-2 text-center' }, 'No saved sessions yet.')
+              : filteredSessions.map((s) =>
+                  e(
+                    'div',
+                    {
+                      key: s.id,
+                      onClick: () => loadSession(s.id),
+                      className: `group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer text-xs transition ${
+                        s.id === sessionId
+                          ? 'bg-indigo-600/20 border border-indigo-500/40 text-indigo-200'
+                          : 'bg-slate-950/60 hover:bg-slate-800 text-slate-300 border border-transparent'
+                      }`
+                    },
+                    e('span', { className: 'truncate flex-1' }, s.title || 'Voice ASR Session'),
+                    e('span', { className: 'text-[10px] text-slate-500 shrink-0' }, s.message_count || 0),
+                    e(
+                      'button',
+                      {
+                        onClick: (ev) => removeSession(s.id, ev),
+                        title: 'Delete session',
+                        className: 'opacity-60 hover:opacity-100 text-rose-400 px-1'
+                      },
+                      e('i', { className: 'fas fa-trash text-[10px]' })
+                    )
+                  )
+                )
+          ),
+          e(
+            'div',
+            { className: 'flex items-center gap-2 pt-1 border-t border-slate-800' },
+            e(
+              'a',
+              {
+                href: `/api/sessions/${encodeURIComponent(sessionId)}/export?format=markdown`,
+                className: 'flex-1 text-center py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-slate-300 transition'
+              },
+              'Export MD'
+            ),
+            e(
+              'a',
+              {
+                href: `/api/sessions/${encodeURIComponent(sessionId)}/export?format=json`,
+                className: 'flex-1 text-center py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-slate-300 transition'
+              },
+              'Export JSON'
             )
           )
         ),
         // Multilingual Query Suggestions
         e(
           'div',
-          { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2.5' },
+          { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2' },
           e('h3', { className: 'text-xs font-semibold text-slate-400 uppercase tracking-wider' }, 'Multilingual Prompts'),
           e(
             'div',
@@ -760,13 +1165,21 @@
       // Chat Stream
       e(
         'main',
-        { className: 'lg:col-span-9 flex flex-col h-[750px] bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden' },
+        { className: 'lg:col-span-9 flex flex-col h-[760px] bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden' },
+        // Visible Microphone Error Banner
+        micError && e(
+          'div',
+          { className: 'px-4 py-2.5 bg-rose-950/80 border-b border-rose-500/40 text-xs text-rose-200 flex items-center justify-between gap-3' },
+          e('div', { className: 'flex items-center gap-2' }, e('i', { className: 'fas fa-triangle-exclamation text-rose-400' }), micError),
+          e('button', { onClick: () => setMicError(''), className: 'text-rose-300 hover:text-white' }, e('i', { className: 'fas fa-xmark' }))
+        ),
         // Message List
         e(
           'div',
           { className: 'flex-1 overflow-y-auto p-4 sm:p-5 space-y-4' },
           messages.map((m) => {
             const isBot = m.role === 'bot'
+            const isRtl = ['ar', 'fa', 'ur', 'he'].some((p) => (m.detectedLanguage?.lang || '').startsWith(p))
             return e(
               'div',
               { key: m.id, className: `flex gap-3 ${isBot ? 'items-start' : 'items-start flex-row-reverse'}` },
@@ -783,24 +1196,117 @@
                 'div',
                 { className: `max-w-[85%] space-y-1.5 ${isBot ? 'text-left' : 'text-right'}` },
                 // Header tags
-                isBot && m.intentTitle && e(
-                  'div',
-                  { className: 'flex items-center gap-2 text-[11px] text-slate-400' },
-                  e('span', { className: 'px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20' }, m.intentTitle),
-                  m.detectedLanguage && e('span', { className: 'text-slate-400' }, `🌐 ${m.detectedLanguage.label}`),
-                  m.confidence && e('span', { className: 'text-emerald-400' }, `${Math.round(m.confidence * 100)}% match`)
-                ),
+                isBot
+                  ? m.intentTitle && e(
+                      'div',
+                      { className: 'flex flex-wrap items-center gap-2 text-[11px] text-slate-400' },
+                      e('span', { className: 'px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20' }, m.intentTitle),
+                      m.detectedLanguage && e('span', { className: 'text-slate-400' }, `🌐 ${m.detectedLanguage.label || m.detectedLanguage.lang}`),
+                      typeof m.confidence === 'number' && e('span', { className: 'text-emerald-400' }, `${Math.round(m.confidence * 100)}% match`),
+                      m.learnedNew && e('span', { className: 'px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' }, 'Learned Live'),
+                      typeof m.latencyMs === 'number' && e('span', { className: 'text-slate-500 font-mono' }, `${m.latencyMs}ms`)
+                    )
+                  : e(
+                      'div',
+                      { className: 'flex items-center justify-end gap-2 text-[11px] text-slate-400' },
+                      m.inputMode === 'voice' && e(
+                        'span',
+                        { className: 'px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' },
+                        `🎤 Voice${typeof m.asrConfidence === 'number' ? ` • ${Math.round(m.asrConfidence * 100)}% ASR` : ''}`
+                      )
+                    ),
                 // Bubble
                 e(
                   'div',
                   {
+                    dir: isRtl ? 'rtl' : 'auto',
                     className: `p-3.5 rounded-2xl text-xs sm:text-sm ${
                       isBot
                         ? 'bg-slate-900 border border-slate-800 text-slate-200 shadow-sm'
-                        : 'bg-indigo-600 text-white'
+                        : 'bg-indigo-600 text-white text-left'
                     }`
                   },
-                  renderFormattedText(m.content)
+                  isBot ? renderFormattedText(m.content) : m.content
+                ),
+                // Sources pills
+                isBot && m.sources && m.sources.length > 0 && e(
+                  'div',
+                  { className: 'flex flex-wrap gap-1.5 pt-0.5' },
+                  m.sources.map((src, si) =>
+                    e(
+                      'a',
+                      {
+                        key: si,
+                        href: src.url,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                        className: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-emerald-300 transition'
+                      },
+                      e('i', { className: 'fas fa-arrow-up-right-from-square text-[9px]' }),
+                      `${src.source}: ${src.title}`
+                    )
+                  )
+                ),
+                // Message Actions (Copy, Speak, Feedback, Probability Details)
+                isBot && e(
+                  'div',
+                  { className: 'flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-0.5' },
+                  e(
+                    'button',
+                    {
+                      onClick: () => copyText(m.id, m.content),
+                      className: 'hover:text-slate-200 flex items-center gap-1 transition'
+                    },
+                    e('i', { className: `fas ${copiedId === m.id ? 'fa-check text-emerald-400' : 'fa-copy'}` }),
+                    copiedId === m.id ? 'Copied' : 'Copy'
+                  ),
+                  e(
+                    'button',
+                    {
+                      onClick: () => speakReply(m.content, m.detectedLanguage?.lang),
+                      className: 'hover:text-slate-200 flex items-center gap-1 transition'
+                    },
+                    e('i', { className: 'fas fa-volume-high' }),
+                    'Speak'
+                  ),
+                  m.dbMessageId && e(
+                    'button',
+                    {
+                      onClick: () => sendFeedback(m, 'up'),
+                      className: `hover:text-emerald-400 transition ${m.feedback === 'up' ? 'text-emerald-400' : ''}`,
+                      title: 'Helpful'
+                    },
+                    e('i', { className: 'fas fa-thumbs-up' })
+                  ),
+                  m.dbMessageId && e(
+                    'button',
+                    {
+                      onClick: () => sendFeedback(m, 'down'),
+                      className: `hover:text-rose-400 transition ${m.feedback === 'down' ? 'text-rose-400' : ''}`,
+                      title: 'Needs improvement'
+                    },
+                    e('i', { className: 'fas fa-thumbs-down' })
+                  ),
+                  m.topPredictions && m.topPredictions.length > 0 && e(
+                    'button',
+                    {
+                      onClick: () => setExpandedDetails((prev) => ({ ...prev, [m.id]: !prev[m.id] })),
+                      className: 'hover:text-indigo-300 transition ml-auto'
+                    },
+                    expandedDetails[m.id] ? 'Hide Classifier Scores' : 'Classifier Scores'
+                  )
+                ),
+                expandedDetails[m.id] && m.topPredictions && e(
+                  'div',
+                  { className: 'p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-[11px]' },
+                  m.topPredictions.map((p) =>
+                    e(
+                      'div',
+                      { key: p.tag, className: 'flex items-center justify-between gap-2' },
+                      e('span', { className: 'font-mono text-slate-300 truncate' }, p.tag),
+                      e('span', { className: 'text-indigo-400 font-mono' }, `${(p.probability * 100).toFixed(1)}%`)
+                    )
+                  )
                 ),
                 // Follow ups
                 isBot && m.followUps && m.followUps.length > 0 && e(
@@ -812,7 +1318,7 @@
                       {
                         key: fi,
                         onClick: () => sendMessage(fu, 'text'),
-                        className: 'px-2 py-1 rounded-md text-[11px] bg-slate-950/70 hover:bg-slate-800 text-indigo-300 border border-indigo-500/20 transition'
+                        className: 'px-2.5 py-1 rounded-lg text-[11px] bg-slate-950/70 hover:bg-slate-800 text-indigo-300 border border-indigo-500/20 transition'
                       },
                       `💡 ${fu}`
                     )
@@ -821,7 +1327,12 @@
               )
             )
           }),
-          // Interim ASR transcript
+          isSending && e(
+            'div',
+            { className: 'flex gap-3 items-center text-xs text-slate-400' },
+            e('div', { className: 'w-8 h-8 rounded-lg bg-indigo-600/50 text-white flex items-center justify-center' }, e('i', { className: 'fas fa-spinner fa-spin' })),
+            e('span', null, 'Analyzing query across Knowledge Pool & Neural Classifier...')
+          ),
           interimTranscript && e(
             'div',
             { className: 'flex gap-3 items-start' },
@@ -857,6 +1368,7 @@
             },
             e('input', {
               type: 'text',
+              dir: currentLangMeta.rtl ? 'rtl' : 'auto',
               value: inputText,
               onChange: (ev) => setInputText(ev.target.value),
               placeholder: `Ask any CS/Math question in ${asrLang} or click mic to speak...`,
@@ -867,6 +1379,8 @@
               {
                 type: 'button',
                 onClick: toggleMicrophone,
+                disabled: !speechSupported,
+                title: 'Toggle Voice Microphone',
                 className: `p-2.5 rounded-xl border text-sm transition ${
                   isListening
                     ? 'bg-rose-600 text-white border-rose-500 animate-pulse'
@@ -890,11 +1404,10 @@
       )
     )
 
-    // ==================== TAB 2: KNOWLEDGE BASE & AUTO-UPGRADE ====================
+    // ==================== TAB 2: KNOWLEDGE POOL ====================
     const knowledgeView = e(
       'div',
       { className: 'max-w-7xl mx-auto p-4 lg:p-6 space-y-6 w-full' },
-      // Overview Banner
       e(
         'div',
         { className: 'bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-slate-900 border border-indigo-500/20 rounded-3xl p-6 sm:p-8 space-y-4' },
@@ -904,9 +1417,9 @@
           e(
             'div',
             { className: 'space-y-1' },
-            e('span', { className: 'text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' }, 'Automated Harvesting & Ingestion'),
+            e('span', { className: 'text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' }, 'Live BM25 Index & Automated Harvester'),
             e('h2', { className: 'text-xl sm:text-2xl font-bold text-white' }, 'Dynamic CS & Mathematical Knowledge Pool'),
-            e('p', { className: 'text-xs sm:text-sm text-slate-300 max-w-3xl' }, 'Self-updating knowledge engine that scrapes Wikipedia and ArXiv across 12 core computer science and mathematical domains, generates multilingual patterns, and retrains the model with zero server downtime.')
+            e('p', { className: 'text-xs sm:text-sm text-slate-300 max-w-3xl' }, 'Self-updating knowledge engine combining sharded Wikipedia encyclopedic articles, ArXiv preprints, and instant real-time web learning persisted in the database.')
           ),
           e(
             'button',
@@ -920,7 +1433,7 @@
               }`
             },
             e('i', { className: `fas ${isUpgrading ? 'fa-spinner fa-spin' : 'fa-arrows-rotate'}` }),
-            isUpgrading ? 'Auto-Upgrading...' : 'Trigger Web Scraping & Auto-Train'
+            isUpgrading ? 'Harvesting Live...' : 'Trigger ArXiv & Wiki Harvest'
           )
         ),
         upgradeMessage && e(
@@ -931,15 +1444,15 @@
         )
       ),
 
-      // Real-time Stat Cards
+      // Stat Cards
       e(
         'div',
         { className: 'grid grid-cols-2 lg:grid-cols-4 gap-4' },
         [
-          { label: 'Certified Languages', val: '35 Languages', desc: 'UN + ISO-639 World Standards', icon: 'fa-globe' },
-          { label: 'CS & Math Pillars', val: '12 Domains', desc: 'Algorithms to Quantum & SVD', icon: 'fa-cubes' },
-          { label: 'TF-IDF Multilingual Vocab', val: `${modelInfo?.vocab_size || 5000} Features`, desc: 'Word 1-2g + Char 3-4g + CJK', icon: 'fa-brain' },
-          { label: 'Scraped Articles Pool', val: `${knowledgeStatus?.total_scraped_articles || 36} Ingested`, desc: 'Wikipedia & ArXiv Preprints', icon: 'fa-file-lines' }
+          { label: 'Certified Languages', val: `${languages.length} Languages`, desc: 'ISO-639 / BCP-47 + RTL', icon: 'fa-globe' },
+          { label: 'Indexed Articles', val: `${knowledgeStatus?.total_scraped_articles || 0}`, desc: `${knowledgeStatus?.learned_articles || 0} self-learned live`, icon: 'fa-book-open' },
+          { label: 'BM25 Search Terms', val: `${knowledgeStatus?.kb_terms || 0}`, desc: 'Sub-millisecond extractive QA', icon: 'fa-magnifying-glass' },
+          { label: 'TF-IDF Vocab Features', val: `${modelInfo?.vocab_size || 5000}`, desc: 'Word 1-2g + Char 3-4g + CJK', icon: 'fa-brain' }
         ].map((c, i) =>
           e(
             'div',
@@ -951,48 +1464,119 @@
         )
       ),
 
-      // On-Demand Topic Ingestion
+      // On-Demand Topic Ingestion + Live Knowledge Explorer Search
       e(
         'div',
-        { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3' },
-        e('h3', { className: 'text-sm font-semibold text-slate-200' }, 'On-Demand Web Scraping & Topic Ingestion'),
-        e('p', { className: 'text-xs text-slate-400' }, 'Type any computer science or mathematical concept to immediately scrape authoritative sources and update the training data:'),
+        { className: 'grid grid-cols-1 lg:grid-cols-2 gap-5' },
         e(
           'div',
-          { className: 'flex flex-wrap sm:flex-nowrap gap-2.5' },
-          e('input', {
-            type: 'text',
-            value: customScrapeTopic,
-            onChange: (ev) => setCustomScrapeTopic(ev.target.value),
-            placeholder: 'e.g. FlashAttention, Runge-Kutta, Elliptic Curve Cryptography, Quantum Shor Algorithm...',
-            className: 'flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500'
-          }),
+          { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3' },
+          e('h3', { className: 'text-sm font-semibold text-slate-200' }, 'On-Demand Topic Scraping & Learning'),
+          e('p', { className: 'text-xs text-slate-400' }, 'Fetch any Wikipedia or ArXiv topic immediately into the live Knowledge Pool:'),
           e(
-            'select',
-            {
-              value: customScrapeLang,
-              onChange: (ev) => setCustomScrapeLang(ev.target.value),
-              className: 'bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300'
-            },
-            e('option', { value: 'en' }, 'English (en)'),
-            e('option', { value: 'es' }, 'Spanish (es)'),
-            e('option', { value: 'fr' }, 'French (fr)'),
-            e('option', { value: 'de' }, 'German (de)'),
-            e('option', { value: 'zh' }, 'Chinese (zh)')
-          ),
+            'div',
+            { className: 'flex flex-wrap sm:flex-nowrap gap-2.5' },
+            e('input', {
+              type: 'text',
+              value: customScrapeTopic,
+              onChange: (ev) => setCustomScrapeTopic(ev.target.value),
+              onKeyDown: (ev) => { if (ev.key === 'Enter') triggerOnDemandScrape() },
+              placeholder: 'e.g. FlashAttention, Kalman filter, Elliptic curve...',
+              className: 'flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500'
+            }),
+            e(
+              'select',
+              {
+                value: customScrapeLang,
+                onChange: (ev) => setCustomScrapeLang(ev.target.value),
+                className: 'bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300'
+              },
+              e('option', { value: 'en' }, 'en'),
+              e('option', { value: 'es' }, 'es'),
+              e('option', { value: 'fr' }, 'fr'),
+              e('option', { value: 'de' }, 'de'),
+              e('option', { value: 'hi' }, 'hi'),
+              e('option', { value: 'zh' }, 'zh')
+            ),
+            e(
+              'button',
+              {
+                onClick: triggerOnDemandScrape,
+                disabled: isUpgrading || !customScrapeTopic.trim(),
+                className: 'px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-medium transition shrink-0'
+              },
+              'Scrape & Learn'
+            )
+          )
+        ),
+        e(
+          'div',
+          { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3' },
+          e('h3', { className: 'text-sm font-semibold text-slate-200' }, 'Search Indexed Knowledge Pool'),
+          e('p', { className: 'text-xs text-slate-400' }, 'Search articles currently indexed in the in-memory BM25 engine:'),
           e(
-            'button',
-            {
-              onClick: triggerOnDemandScrape,
-              disabled: isUpgrading || !customScrapeTopic.trim(),
-              className: 'px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-medium transition shrink-0'
-            },
-            'Scrape & Learn'
+            'div',
+            { className: 'flex gap-2.5' },
+            e('input', {
+              type: 'text',
+              value: kbSearchQuery,
+              onChange: (ev) => {
+                setKbSearchQuery(ev.target.value)
+                searchKnowledge(ev.target.value)
+              },
+              placeholder: 'Search SVD, Dijkstra, Transformer, Raft, RSA...',
+              className: 'flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500'
+            }),
+            kbSearching && e('span', { className: 'self-center text-xs text-indigo-400' }, e('i', { className: 'fas fa-spinner fa-spin' }))
           )
         )
       ),
 
-      // CS & Mathematical Computing Pillars Explorer
+      // Search Results Grid
+      kbSearchResults.length > 0 && e(
+        'div',
+        { className: 'space-y-3' },
+        e('h3', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, kbSearchQuery ? `Matching Knowledge Articles (${kbSearchResults.length})` : 'Featured Knowledge Articles'),
+        e(
+          'div',
+          { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
+          kbSearchResults.map((art, idx) =>
+            e(
+              'div',
+              { key: `${art.title}-${idx}`, className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-2' },
+              e(
+                'div',
+                { className: 'space-y-1.5' },
+                e(
+                  'div',
+                  { className: 'flex items-center justify-between gap-2' },
+                  e('span', { className: 'text-xs font-bold text-indigo-300 truncate' }, art.title),
+                  art.learned && e('span', { className: 'text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0' }, 'Learned')
+                ),
+                e('p', { className: 'text-xs text-slate-400 line-clamp-3 leading-relaxed' }, art.summary)
+              ),
+              e(
+                'div',
+                { className: 'flex items-center justify-between pt-2 border-t border-slate-800/80' },
+                e('span', { className: 'text-[10px] text-slate-500 truncate' }, art.source),
+                e(
+                  'button',
+                  {
+                    onClick: () => {
+                      setActiveTab('chat')
+                      sendMessage(`What is ${art.title}?`, 'text')
+                    },
+                    className: 'text-[11px] text-indigo-400 hover:text-indigo-300 font-medium'
+                  },
+                  'Ask AI →'
+                )
+              )
+            )
+          )
+        )
+      ),
+
+      // 12 Domains Explorer
       e(
         'div',
         { className: 'space-y-3' },
@@ -1035,8 +1619,30 @@
       e(
         'div',
         { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4' },
-        e('h2', { className: 'text-base font-bold text-white' }, 'Word Error Rate (WER) & CER Evaluator Lab'),
-        e('p', { className: 'text-xs text-slate-400' }, 'Calculate speech recognition accuracy using dynamic programming Levenshtein minimum edit distance alignment across Substitutions (S), Deletions (D), and Insertions (I).'),
+        e(
+          'div',
+          { className: 'flex flex-wrap items-center justify-between gap-3' },
+          e(
+            'div',
+            null,
+            e('h2', { className: 'text-base font-bold text-white' }, 'Word Error Rate (WER) & CER Evaluator Lab'),
+            e('p', { className: 'text-xs text-slate-400' }, 'Calculate speech recognition accuracy using dynamic programming Levenshtein alignment across Substitutions (S), Deletions (D), and Insertions (I).')
+          ),
+          e(
+            'button',
+            {
+              onClick: toggleWerMicrophone,
+              disabled: !speechSupported,
+              className: `px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-2 transition ${
+                isListeningWer
+                  ? 'bg-rose-600 text-white mic-recording-pulse'
+                  : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+              }`
+            },
+            e('i', { className: `fas ${isListeningWer ? 'fa-microphone-slash' : 'fa-microphone'}` }),
+            isListeningWer ? 'Listening Hypothesis...' : `Dictate Hypothesis (${asrLang})`
+          )
+        ),
         e(
           'div',
           { className: 'flex flex-wrap gap-2' },
@@ -1048,7 +1654,7 @@
                 onClick: () => {
                   setWerRef(ex.ref)
                   setWerHyp(ex.hyp)
-                  runWerEvaluation(ex.ref, ex.hyp)
+                  runWerEvaluation(ex.ref, ex.hyp, true)
                 },
                 className: 'px-2.5 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 transition'
               },
@@ -1068,7 +1674,7 @@
               value: werRef,
               onChange: (ev) => {
                 setWerRef(ev.target.value)
-                runWerEvaluation(ev.target.value, werHyp)
+                runWerEvaluation(ev.target.value, werHyp, false)
               },
               className: 'w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-indigo-500'
             })
@@ -1082,10 +1688,22 @@
               value: werHyp,
               onChange: (ev) => {
                 setWerHyp(ev.target.value)
-                runWerEvaluation(werRef, ev.target.value)
+                runWerEvaluation(werRef, ev.target.value, false)
               },
               className: 'w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-indigo-500'
             })
+          )
+        ),
+        e(
+          'div',
+          { className: 'flex justify-end' },
+          e(
+            'button',
+            {
+              onClick: () => runWerEvaluation(werRef, werHyp, true),
+              className: 'px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition'
+            },
+            'Save Benchmark Run'
           )
         ),
         werResult && e(
@@ -1108,7 +1726,6 @@
               )
             )
           ),
-          // Word Alignment Visualizer
           e(
             'div',
             { className: 'bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2' },
@@ -1138,63 +1755,121 @@
             )
           )
         )
+      ),
+      // WER Benchmark History
+      werHistory.length > 0 && e(
+        'div',
+        { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3' },
+        e(
+          'div',
+          { className: 'flex items-center justify-between' },
+          e('h3', { className: 'text-sm font-semibold text-slate-200' }, 'Recent Saved WER Benchmark Runs'),
+          e(
+            'button',
+            { onClick: clearWerLog, className: 'text-xs text-rose-400 hover:text-rose-300' },
+            'Clear History'
+          )
+        ),
+        e(
+          'div',
+          { className: 'space-y-2' },
+          werHistory.map((item) =>
+            e(
+              'div',
+              { key: item.id, className: 'p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs' },
+              e('div', { className: 'space-y-0.5 max-w-2xl' },
+                e('div', { className: 'text-slate-300 truncate' }, `Ref: ${item.reference_text}`),
+                e('div', { className: 'text-slate-500 truncate' }, `Hyp: ${item.hypothesis_text}`)
+              ),
+              e('div', { className: 'flex items-center gap-3 font-mono' },
+                e('span', { className: 'text-amber-400' }, `WER ${item.wer}%`),
+                e('span', { className: 'text-purple-400' }, `CER ${item.cer}%`)
+              )
+            )
+          )
+        )
       )
     )
 
-    // ==================== TAB 4: MODEL INSPECTOR ====================
+    // ==================== TAB 4: ANALYTICS & MODEL INSPECTOR ====================
     const modelView = e(
       'div',
       { className: 'max-w-6xl mx-auto p-4 lg:p-6 space-y-6 w-full' },
-      modelInfo && e(
+      analytics && e(
         'div',
-        { className: 'space-y-5' },
+        { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4' },
         e(
           'div',
-          { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4' },
-          e('h2', { className: 'text-base font-bold text-white' }, 'Softmax Neural & TF-IDF Model Architecture'),
-          e(
-            'div',
-            { className: 'grid grid-cols-2 sm:grid-cols-4 gap-3' },
-            [
-              { label: 'Training Accuracy', val: `${(modelInfo.train_accuracy * 100).toFixed(2)}%` },
-              { label: '5-Fold CV Accuracy', val: `${(modelInfo.cv_accuracy_mean * 100).toFixed(1)}%` },
-              { label: 'TF-IDF Multilingual Vocab', val: `${modelInfo.vocab_size} n-grams` },
-              { label: 'Training Samples', val: `${modelInfo.augmented_samples} (${modelInfo.num_classes} classes)` }
-            ].map((m, i) =>
-              e(
-                'div',
-                { key: i, className: 'bg-slate-950 border border-slate-800 rounded-xl p-3 text-center' },
-                e('div', { className: 'text-lg font-bold text-indigo-400' }, m.val),
-                e('div', { className: 'text-[11px] text-slate-500 mt-0.5' }, m.label)
-              )
-            )
-          ),
-          e(
-            'div',
-            { className: 'space-y-3' },
-            e('h3', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'All Trained Multilingual Intent Classes'),
+          { className: 'flex items-center justify-between' },
+          e('h2', { className: 'text-base font-bold text-white' }, 'Live Commercial Usage & Telemetry'),
+          e('span', { className: 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-mono' }, `DB: ${analytics.databaseBackend}`)
+        ),
+        e(
+          'div',
+          { className: 'grid grid-cols-2 sm:grid-cols-4 gap-3' },
+          [
+            { label: 'Total Sessions', val: analytics.totalSessions ?? 0 },
+            { label: 'Total Queries (Voice / Text)', val: `${analytics.total_queries ?? 0} (${analytics.voice_queries ?? 0}🎤 / ${analytics.text_queries ?? 0}⌨️)` },
+            { label: 'Avg Inference Latency', val: analytics.avg_latency_ms ? `${analytics.avg_latency_ms} ms` : 'N/A' },
+            { label: 'Feedback (👍 / 👎)', val: `${analytics.feedback?.positive ?? 0} / ${analytics.feedback?.negative ?? 0}` }
+          ].map((m, i) =>
             e(
               'div',
-              { className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' },
-              (modelInfo.intents || []).map((it) =>
+              { key: i, className: 'bg-slate-950 border border-slate-800 rounded-xl p-3 text-center' },
+              e('div', { className: 'text-lg font-bold text-emerald-400' }, m.val),
+              e('div', { className: 'text-[11px] text-slate-500 mt-0.5' }, m.label)
+            )
+          )
+        )
+      ),
+      modelInfo && e(
+        'div',
+        { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4' },
+        e('h2', { className: 'text-base font-bold text-white' }, 'Softmax Neural & TF-IDF Model Architecture'),
+        e(
+          'div',
+          { className: 'grid grid-cols-2 sm:grid-cols-4 gap-3' },
+          [
+            { label: 'Training Accuracy', val: `${((modelInfo.train_accuracy || 0) * 100).toFixed(2)}%` },
+            { label: '5-Fold CV Accuracy', val: `${((modelInfo.cv_accuracy_mean || 0) * 100).toFixed(1)}%` },
+            { label: 'TF-IDF Multilingual Vocab', val: `${modelInfo.vocab_size || 0} n-grams` },
+            { label: 'Training Samples', val: `${modelInfo.augmented_samples || 0} (${modelInfo.num_classes || 0} classes)` }
+          ].map((m, i) =>
+            e(
+              'div',
+              { key: i, className: 'bg-slate-950 border border-slate-800 rounded-xl p-3 text-center' },
+              e('div', { className: 'text-lg font-bold text-indigo-400' }, m.val),
+              e('div', { className: 'text-[11px] text-slate-500 mt-0.5' }, m.label)
+            )
+          )
+        ),
+        e(
+          'div',
+          { className: 'space-y-3' },
+          e('h3', { className: 'text-xs font-semibold uppercase tracking-wider text-slate-400' }, 'All Trained Multilingual Intent Classes'),
+          e(
+            'div',
+            { className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' },
+            (modelInfo.intents || []).map((it) =>
+              e(
+                'div',
+                {
+                  key: it.tag,
+                  onClick: () => {
+                    setActiveTab('chat')
+                    if (it.sample_follow_ups && it.sample_follow_ups[0]) {
+                      sendMessage(it.sample_follow_ups[0], 'text')
+                    }
+                  },
+                  className: 'p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/40 cursor-pointer transition'
+                },
                 e(
                   'div',
-                  {
-                    key: it.tag,
-                    onClick: () => {
-                      setActiveTab('chat')
-                      if (it.sample_follow_ups && it.sample_follow_ups[0]) {
-                        sendMessage(it.sample_follow_ups[0], 'text')
-                      }
-                    },
-                    className: 'p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/40 cursor-pointer transition'
-                  },
-                  e('div', { className: 'flex items-center justify-between' },
-                    e('span', { className: 'font-mono text-xs text-indigo-400' }, it.tag),
-                    e('span', { className: 'text-[10px] text-slate-500' }, `${it.pattern_count} patterns`)
-                  ),
-                  e('div', { className: 'text-xs font-semibold text-slate-200 mt-1' }, it.title)
-                )
+                  { className: 'flex items-center justify-between' },
+                  e('span', { className: 'font-mono text-xs text-indigo-400' }, it.tag),
+                  e('span', { className: 'text-[10px] text-slate-500' }, `${it.pattern_count} patterns`)
+                ),
+                e('div', { className: 'text-xs font-semibold text-slate-200 mt-1' }, it.title)
               )
             )
           )

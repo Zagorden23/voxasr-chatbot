@@ -255,6 +255,8 @@ def build_intents():
                 "aes gcm authenticated encryption", "zero knowledge proofs zk snarks",
                 "diffie hellman key exchange", "post quantum cryptography lattice based",
                 "sha 256 cryptographic hash function", "tls 1 3 handshake security",
+                "wie funktioniert die rsa verschlüsselung", "kryptographie und sicherheit",
+                "comment fonctionne le chiffrement rsa", "cryptographie à courbe elliptique",
                 "criptografía rsa", "curvas elípticas ecc", "pruebas de conocimiento cero zk",
                 "什么是rsa加密", "解释椭圆曲线密码学ecc", "零知识证明zk snarks",
                 "आरएसए क्रिप्टोग्राफी क्या है", "एलिप्टिक कर्व क्रिप्टोग्राफी क्या है", "ज़ीरो नॉलेज प्रूफ क्या है"

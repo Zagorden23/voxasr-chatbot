@@ -1,77 +1,33 @@
 /**
- * Pure JavaScript Inference Engine + Multilingual CS/Math Classifier + ASR WER/CER Metrics
- * Loads the weights exported by `training/train_chatbot.py` and performs
- * exact Sublinear TF-IDF + L2-Normalized Softmax inference in <1ms across
- * all certified international languages and computer science / mathematical domains.
+ * Pure JavaScript Inference Engine + Multilingual CS/Math Classifier +
+ * Extractive Knowledge QA + Safe Math Evaluator + ASR WER/CER Metrics
  */
 
-import initialModel from './model/chatbot_model.json'
+import fs from 'node:fs'
+import path from 'node:path'
+import {
+  analyzeQuery,
+  bestPassage,
+  focusTerms,
+  leadOf
+} from './knowledge.js'
+import { detectLanguage, isCjkChar, normalizeText, tokenize, wikiLang } from './text.js'
+import { getKnowledgeIndex, learnTopicFromWeb } from './web_learner.js'
 
-let activeModel = initialModel
+const MODEL_PATH = path.resolve(process.cwd(), 'src', 'model', 'chatbot_model.json')
+
+let activeModel = JSON.parse(fs.readFileSync(MODEL_PATH, 'utf8'))
 
 export function reloadModel(newModelData) {
-  if (newModelData && newModelData.vocabulary && newModelData.weights) {
+  if (newModelData && newModelData.vocabulary && newModelData.weights && newModelData.classes) {
     activeModel = newModelData
     return true
   }
   return false
 }
 
-export function normalizeText(text = '') {
-  return String(text)
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-export function isCjkChar(ch) {
-  if (!ch) return false
-  const cp = ch.codePointAt(0)
-  return (
-    (cp >= 0x4e00 && cp <= 0x9fff) ||
-    (cp >= 0x3400 && cp <= 0x4dbf) ||
-    (cp >= 0x3040 && cp <= 0x309f) ||
-    (cp >= 0x30a0 && cp <= 0x30ff) ||
-    (cp >= 0xac00 && cp <= 0xd7af)
-  )
-}
-
-export function detectScriptAndLanguage(rawText = '') {
-  const text = String(rawText)
-  if (/[\u0900-\u097F]/.test(text)) return { script: 'Devanagari', lang: 'hi-IN', label: 'Hindi' }
-  if (/[\u0400-\u04FF]/.test(text)) return { script: 'Cyrillic', lang: 'ru-RU', label: 'Russian' }
-  if (/[\u0600-\u06FF]/.test(text)) return { script: 'Arabic', lang: 'ar-SA', label: 'Arabic' }
-  if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) return { script: 'Kana', lang: 'ja-JP', label: 'Japanese' }
-  if (/[\u4E00-\u9FFF]/.test(text)) return { script: 'Hanzi', lang: 'zh-CN', label: 'Mandarin Chinese' }
-  if (/[\uAC00-\uD7AF]/.test(text)) return { script: 'Hangul', lang: 'ko-KR', label: 'Korean' }
-  if (/[\u0980-\u09FF]/.test(text)) return { script: 'Bengali', lang: 'bn-IN', label: 'Bengali' }
-  if (/[\u0B80-\u0BFF]/.test(text)) return { script: 'Tamil', lang: 'ta-IN', label: 'Tamil' }
-  if (/[\u0C00-\u0C7F]/.test(text)) return { script: 'Telugu', lang: 'te-IN', label: 'Telugu' }
-  if (/[\u0370-\u03FF]/.test(text)) return { script: 'Greek', lang: 'el-GR', label: 'Greek' }
-  if (/[\u0590-\u05FF]/.test(text)) return { script: 'Hebrew', lang: 'he-IL', label: 'Hebrew' }
-  if (/[\u0E00-\u0E7F]/.test(text)) return { script: 'Thai', lang: 'th-TH', label: 'Thai' }
-
-  // Latin script language hints
-  const lower = text.toLowerCase()
-  if (/\b(qué|cómo|cuál|por qué|hola|gracias|buenos días)\b/i.test(lower)) {
-    return { script: 'Latin', lang: 'es-ES', label: 'Spanish' }
-  }
-  if (/\b(qu'est-ce|comment|pourquoi|bonjour|merci|salut)\b/i.test(lower)) {
-    return { script: 'Latin', lang: 'fr-FR', label: 'French' }
-  }
-  if (/\b(wie|warum|was ist|hallo|danke|guten morgen)\b/i.test(lower)) {
-    return { script: 'Latin', lang: 'de-DE', label: 'German' }
-  }
-  if (/\b(você|como funciona|olá|obrigado|bom dia)\b/i.test(lower)) {
-    return { script: 'Latin', lang: 'pt-BR', label: 'Portuguese' }
-  }
-  if (/\b(come funziona|cosa è|ciao|grazie|buongiorno)\b/i.test(lower)) {
-    return { script: 'Latin', lang: 'it-IT', label: 'Italian' }
-  }
-
-  return { script: 'Latin', lang: 'en-US', label: 'English' }
+export function detectScriptAndLanguage(rawText = '', hint = '') {
+  return detectLanguage(rawText, hint)
 }
 
 export function extractTokens(rawText) {
@@ -81,12 +37,10 @@ export function extractTokens(rawText) {
   const words = norm.split(' ').filter(Boolean)
   const tokens = [...words]
 
-  // Word 2-grams
   for (let i = 0; i < words.length - 1; i++) {
     tokens.push(`${words[i]}_${words[i + 1]}`)
   }
 
-  // CJK character unigrams and bigrams
   const chars = Array.from(norm)
   const cjkChars = chars.filter(isCjkChar)
   for (let i = 0; i < cjkChars.length; i++) {
@@ -96,7 +50,6 @@ export function extractTokens(rawText) {
     }
   }
 
-  // Per-word Character 3-grams and 4-grams (mirrors Python training exactly)
   for (const word of words) {
     if (word.length < 2 || Array.from(word).some(isCjkChar)) continue
     const padded = `<${word}>`
@@ -110,10 +63,197 @@ export function extractTokens(rawText) {
   return tokens
 }
 
-export function predictIntent(userMessage) {
+// ---------------------------------------------------------------------------
+// Injection-safe Recursive-Descent Mathematical Expression Evaluator
+// ---------------------------------------------------------------------------
+
+const MATH_CONSTANTS = {
+  pi: Math.PI,
+  e: Math.E,
+  tau: Math.PI * 2,
+  phi: (1 + Math.sqrt(5)) / 2
+}
+
+const MATH_FUNCS = {
+  sqrt: (x) => Math.sqrt(x),
+  abs: (x) => Math.abs(x),
+  sin: (x) => Math.sin(x),
+  cos: (x) => Math.cos(x),
+  tan: (x) => Math.tan(x),
+  ln: (x) => Math.log(x),
+  log: (x) => Math.log10(x),
+  log10: (x) => Math.log10(x),
+  log2: (x) => Math.log2(x),
+  exp: (x) => Math.exp(x),
+  floor: (x) => Math.floor(x),
+  ceil: (x) => Math.ceil(x),
+  round: (x) => Math.round(x)
+}
+
+function tryEvaluateMathExpression(rawInput) {
+  const cleaned = String(rawInput || '')
+    .trim()
+    .replace(/^(?:what\s+is|calculate|compute|evaluate|solve|find)\s+/i, '')
+    .replace(/[?？=]+\s*$/g, '')
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/\*\*/g, '^')
+    .trim()
+
+  if (!cleaned || cleaned.length > 100) return null
+  // Must contain at least one digit and one operator or math function
+  if (!/\d/.test(cleaned)) return null
+  if (!/[+\-*/^%()]|\b(?:sqrt|sin|cos|tan|log|log2|log10|ln|exp|abs|floor|ceil|round)\b/i.test(cleaned)) {
+    return null
+  }
+  // Reject prose words outside known functions/constants
+  const wordTokens = cleaned.match(/[a-zA-Z_]+/g) || []
+  for (const w of wordTokens) {
+    const lw = w.toLowerCase()
+    if (!(lw in MATH_FUNCS) && !(lw in MATH_CONSTANTS)) return null
+  }
+
+  try {
+    const tokens = []
+    let i = 0
+    while (i < cleaned.length) {
+      const ch = cleaned[i]
+      if (/\s/.test(ch)) {
+        i++
+        continue
+      }
+      if (/[0-9.]/.test(ch)) {
+        let numStr = ''
+        while (i < cleaned.length && /[0-9.]/.test(cleaned[i])) {
+          numStr += cleaned[i++]
+        }
+        const val = Number(numStr)
+        if (!Number.isFinite(val)) return null
+        tokens.push({ type: 'num', value: val })
+        continue
+      }
+      if (/[a-zA-Z_]/.test(ch)) {
+        let id = ''
+        while (i < cleaned.length && /[a-zA-Z0-9_]/.test(cleaned[i])) {
+          id += cleaned[i++]
+        }
+        tokens.push({ type: 'id', value: id.toLowerCase() })
+        continue
+      }
+      if ('+-*/^%()'.includes(ch)) {
+        tokens.push({ type: 'op', value: ch })
+        i++
+        continue
+      }
+      return null
+    }
+
+    let pos = 0
+    const peek = () => tokens[pos]
+    const consume = () => tokens[pos++]
+
+    function parseExpr() {
+      let left = parseTerm()
+      while (peek()?.type === 'op' && (peek().value === '+' || peek().value === '-')) {
+        const op = consume().value
+        const right = parseTerm()
+        left = op === '+' ? left + right : left - right
+      }
+      return left
+    }
+
+    function parseTerm() {
+      let left = parsePower()
+      while (peek()?.type === 'op' && (peek().value === '*' || peek().value === '/' || peek().value === '%')) {
+        const op = consume().value
+        const right = parsePower()
+        if (op === '*') left *= right
+        else if (op === '/') {
+          if (right === 0) throw new Error('Division by zero')
+          left /= right
+        } else {
+          if (right === 0) throw new Error('Modulo by zero')
+          left %= right
+        }
+      }
+      return left
+    }
+
+    function parsePower() {
+      const base = parseUnary()
+      if (peek()?.type === 'op' && peek().value === '^') {
+        consume()
+        const exp = parsePower()
+        return Math.pow(base, exp)
+      }
+      return base
+    }
+
+    function parseUnary() {
+      if (peek()?.type === 'op' && peek().value === '-') {
+        consume()
+        return -parseUnary()
+      }
+      if (peek()?.type === 'op' && peek().value === '+') {
+        consume()
+        return parseUnary()
+      }
+      return parsePrimary()
+    }
+
+    function parsePrimary() {
+      const tok = peek()
+      if (!tok) throw new Error('Unexpected end of expression')
+      if (tok.type === 'num') {
+        consume()
+        return tok.value
+      }
+      if (tok.type === 'id') {
+        consume()
+        if (tok.value in MATH_CONSTANTS) return MATH_CONSTANTS[tok.value]
+        if (tok.value in MATH_FUNCS) {
+          if (peek()?.type !== 'op' || peek().value !== '(') throw new Error('Expected (')
+          consume()
+          const arg = parseExpr()
+          if (peek()?.type !== 'op' || peek().value !== ')') throw new Error('Expected )')
+          consume()
+          return MATH_FUNCS[tok.value](arg)
+        }
+        throw new Error(`Unknown identifier ${tok.value}`)
+      }
+      if (tok.type === 'op' && tok.value === '(') {
+        consume()
+        const inner = parseExpr()
+        if (peek()?.type !== 'op' || peek().value !== ')') throw new Error('Missing )')
+        consume()
+        return inner
+      }
+      throw new Error('Invalid syntax')
+    }
+
+    const result = parseExpr()
+    if (pos !== tokens.length || !Number.isFinite(result)) return null
+    const formatted = Number.isInteger(result)
+      ? result.toString()
+      : Number(result.toPrecision(10)).toString()
+    return { expression: cleaned, result: formatted }
+  } catch (err) {
+    if (err.message === 'Division by zero' || err.message === 'Modulo by zero') {
+      return { expression: cleaned, error: err.message }
+    }
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Softmax Intent Classifier (Sublinear TF-IDF + L2 Weights)
+// ---------------------------------------------------------------------------
+
+export function predictIntent(userMessage, langHint = '') {
   const start = performance.now()
   const tokens = extractTokens(userMessage)
-  const langMeta = detectScriptAndLanguage(userMessage)
+  const langMeta = detectLanguage(userMessage, langHint)
   const model = activeModel
 
   const vocab = model.vocabulary
@@ -121,7 +261,6 @@ export function predictIntent(userMessage) {
   const weights = model.weights
   const biases = model.biases
 
-  // Term frequency over known vocabulary indices
   const tfCounts = new Map()
   const matchedTokens = []
 
@@ -135,30 +274,26 @@ export function predictIntent(userMessage) {
     }
   }
 
-  // Fallback if zero known features matched
   if (tfCounts.size === 0) {
     return {
-      intentTag: 'algorithms_complexity',
-      intentTitle: 'Computer Science & Mathematics AI Assistant',
+      intentTag: 'unknown',
+      intentTitle: 'General CS & Math Assistant',
       confidence: 0.15,
       detectedLanguage: langMeta,
       reply:
-        "I didn't identify specific technical keywords in that message. You can ask me across any **Certified World Language** about:\n\n- **Algorithms & Complexity**: Dijkstra, A*, Dynamic Programming, P vs NP, Big-O\n- **Mathematical Computing**: SVD, QR/LU decomposition, Runge-Kutta RK4, FFT, Monte Carlo\n- **Machine Learning & Deep Learning**: Transformers, RoPE, Attention, Backprop, Diffusion, Loss Functions\n- **Speech AI & ASR**: OpenAI Whisper, Conformer, CTC Loss, WER Evaluation, Spectrograms\n- **Systems, Compilers & Cryptography**: Virtual Memory, Raft, LLVM IR, RSA, ECC, Zero-Knowledge Proofs\n\nOr click the **Auto-Upgrade Knowledge** button to trigger automated web scraping!",
+        "I didn't find matching keywords in my classifier vocabulary for that query. Try asking about a specific Computer Science or Mathematical Computing topic (e.g. **SVD**, **Dijkstra**, **Transformers**, **Raft**, **RSA**), or ask me to compute a math expression!",
       followUps: [
         'Explain Singular Value Decomposition (SVD)',
         'What is Dijkstra shortest path algorithm?',
         'How does OpenAI Whisper work?',
-        'What is P vs NP in computational complexity?'
+        'Compare B+ tree and LSM tree'
       ],
-      topPredictions: [
-        { tag: 'algorithms_complexity', title: 'Algorithms & Complexity', probability: 0.15 }
-      ],
+      topPredictions: [],
       matchedTokens: [],
       latencyMs: Number((performance.now() - start).toFixed(3))
     }
   }
 
-  // Sublinear TF-IDF: (1 + ln(tf)) * idf, followed by L2 normalization
   const sparseVec = []
   let normSq = 0
 
@@ -173,7 +308,6 @@ export function predictIntent(userMessage) {
     sparseVec[i][1] /= l2Norm
   }
 
-  // Compute logits = W * x + b
   const numClasses = model.classes.length
   const logits = new Array(numClasses)
   let maxLogit = -Infinity
@@ -189,7 +323,6 @@ export function predictIntent(userMessage) {
     if (sum > maxLogit) maxLogit = sum
   }
 
-  // Numerically stable Softmax
   let expSum = 0
   const probs = new Array(numClasses)
   for (let c = 0; c < numClasses; c++) {
@@ -201,7 +334,6 @@ export function predictIntent(userMessage) {
     probs[c] /= expSum
   }
 
-  // Rank predictions
   const ranked = probs
     .map((p, idx) => ({
       index: idx,
@@ -213,23 +345,11 @@ export function predictIntent(userMessage) {
 
   const best = ranked[0]
   const intentObj = model.intents[best.index]
-
-  let reply =
-    intentObj.responses[0] ||
-    intentObj.responses[Math.floor(Math.random() * intentObj.responses.length)]
-
-  // Append dynamic web-scraped insight from ArXiv / Wikipedia if available
-  if (intentObj.scraped_insights && intentObj.scraped_insights.length > 0) {
-    const insight =
-      intentObj.scraped_insights[Math.floor(Math.random() * intentObj.scraped_insights.length)]
-    reply += `\n\n> 🌐 **Live Web-Harvested Ingestion (${insight.source})**: **${insight.title}**\n> ${insight.summary}`
-  }
-
-  if (best.probability < 0.28) {
-    reply =
-      `*Matched domain:* **${intentObj.title}** (${Math.round(best.probability * 100)}% match)\n\n` +
-      reply
-  }
+  const responses = intentObj.responses || []
+  const reply =
+    responses.length > 1
+      ? responses[Math.floor(Math.random() * responses.length)]
+      : responses[0] || ''
 
   return {
     intentTag: best.tag,
@@ -244,10 +364,230 @@ export function predictIntent(userMessage) {
   }
 }
 
-/**
- * Compute Word Error Rate (WER), Character Error Rate (CER), and token-level
- * Levenshtein alignment backtrace (correct, substitution, deletion, insertion).
- */
+// ---------------------------------------------------------------------------
+// Intelligent Hybrid Reply (Softmax + Math + BM25 Extractive QA + Live Web)
+// ---------------------------------------------------------------------------
+
+const CONVERSATIONAL_INTENTS = new Set([
+  'greeting',
+  'thanks_goodbye',
+  'language_support',
+  'wer_evaluation',
+  'knowledge_auto_upgrade'
+])
+
+const FOLLOWUP_PRONOUN_RE = /\b(it|its|this|that|they|them|their|same)\b/i
+
+function formatKnowledgeAnswer(subject, passage, kbIndex, learnedNew = false) {
+  const doc = subject.doc
+  const sentences = kbIndex.sentences(subject.idx)
+  const lead = leadOf(sentences, 680) || doc.text
+  let body = ''
+
+  if (passage && passage.text && !lead.startsWith(passage.text.slice(0, 40))) {
+    body = `**${doc.title}**\n\n${passage.text}\n\n> **Background:** ${lead}`
+  } else {
+    body = `**${doc.title}**\n\n${lead}`
+  }
+
+  const badge = learnedNew
+    ? `🌐 Learned live from ${doc.source}`
+    : `📚 Knowledge Pool (${doc.source})`
+
+  body += `\n\n_${badge}_`
+  if (doc.url) {
+    body += ` — ${doc.url}`
+  }
+  return body
+}
+
+export async function generateIntelligentReply(userMessage, options = {}) {
+  const start = performance.now()
+  const langHint = options.langHint || ''
+  const contextTopic = options.contextTopic || null
+  const autoLearn = options.autoLearn !== false
+
+  const basePrediction = predictIntent(userMessage, langHint)
+  const langMeta = basePrediction.detectedLanguage
+  const shortLang = wikiLang(langMeta.lang || langHint || 'en-US')
+
+  // 1. Mathematical expression evaluator
+  const mathEval = tryEvaluateMathExpression(userMessage)
+  if (mathEval) {
+    const reply = mathEval.error
+      ? `**Mathematical Evaluation Error**\n\nExpression: \`${mathEval.expression}\`\nResult: **${mathEval.error}**`
+      : `**Computed Result**\n\n- Expression: \`${mathEval.expression}\`\n- Exact Value: **${mathEval.result}**`
+    return {
+      ...basePrediction,
+      intentTag: 'numerical_analysis',
+      intentTitle: 'Mathematical Expression Evaluator',
+      confidence: 0.99,
+      reply,
+      sourceTitle: 'Math Evaluator',
+      sourceUrl: null,
+      sources: [],
+      learnedNew: false,
+      latencyMs: Number((performance.now() - start).toFixed(3))
+    }
+  }
+
+  // 2. Conversational / meta-capability intents take priority when confident
+  const wordCount = userMessage.trim().split(/\s+/).length
+  if (
+    CONVERSATIONAL_INTENTS.has(basePrediction.intentTag) &&
+    (basePrediction.confidence >= 0.42 || (basePrediction.intentTag === 'greeting' && wordCount <= 5))
+  ) {
+    return {
+      ...basePrediction,
+      sources: [],
+      sourceTitle: null,
+      sourceUrl: null,
+      learnedNew: false,
+      latencyMs: Number((performance.now() - start).toFixed(3))
+    }
+  }
+
+  const kbIndex = getKnowledgeIndex()
+
+  // Resolve follow-up pronoun context if previous turn discussed a topic
+  let effectiveQuery = userMessage
+  if (contextTopic && FOLLOWUP_PRONOUN_RE.test(userMessage) && wordCount <= 10) {
+    effectiveQuery = `${contextTopic} ${userMessage}`
+  }
+
+  const analysis = analyzeQuery(effectiveQuery, shortLang)
+
+  // 3. Side-by-side comparison ("Compare A and B" / "A vs B")
+  if (analysis.comparison && kbIndex.size > 0) {
+    const [termA, termB] = analysis.comparison
+    const findOrLearn = async (term) => {
+      const toks = tokenize(term, shortLang, true)
+      let hits = kbIndex.findSubjects(toks, shortLang, 1)
+      if ((!hits.length || hits[0].rel < 0.42) && autoLearn) {
+        await learnTopicFromWeb(term, shortLang, basePrediction.intentTag).catch(() => null)
+        hits = kbIndex.findSubjects(toks, shortLang, 1)
+      }
+      return hits[0] || null
+    }
+
+    const [hitA, hitB] = await Promise.all([findOrLearn(termA), findOrLearn(termB)])
+    if (hitA && hitB && hitA.idx !== hitB.idx) {
+      const leadA = leadOf(kbIndex.sentences(hitA.idx), 420) || hitA.doc.text
+      const leadB = leadOf(kbIndex.sentences(hitB.idx), 420) || hitB.doc.text
+      const sources = [hitA.doc, hitB.doc]
+        .filter((d) => d.url)
+        .map((d) => ({ title: d.title, source: d.source, url: d.url }))
+
+      const reply =
+        `### Comparison: ${hitA.doc.title} vs. ${hitB.doc.title}\n\n` +
+        `- **${hitA.doc.title}**: ${leadA}\n` +
+        `- **${hitB.doc.title}**: ${leadB}`
+
+      return {
+        ...basePrediction,
+        intentTitle: `${basePrediction.intentTitle} • Comparison`,
+        reply,
+        sourceTitle: `${hitA.doc.title} vs ${hitB.doc.title}`,
+        sourceUrl: sources[0]?.url || null,
+        sources,
+        followUps: [
+          `Explain ${hitA.doc.title} in detail`,
+          `Explain ${hitB.doc.title} in detail`,
+          `When should I use ${hitA.doc.title} over ${hitB.doc.title}?`
+        ],
+        learnedNew: Boolean(hitA.doc.learned || hitB.doc.learned),
+        latencyMs: Number((performance.now() - start).toFixed(3))
+      }
+    }
+  }
+
+  // 4. Local BM25 Knowledge Pool + Extractive Passage Selection
+  let learnedNew = false
+  let hits = kbIndex.size > 0 ? kbIndex.findSubjects(analysis.tokens, shortLang, 3) : []
+  let top = hits[0]
+
+  const isWeakLocalHit = !top || (top.rel < 0.55 && !(top.span && top.span.share >= 0.45))
+
+  // 5. Self-learning live web lookup if local pool has no strong match
+  if (isWeakLocalHit && autoLearn && analysis.searchQuery && analysis.searchQuery.length >= 2) {
+    const domainHint = basePrediction.intentTag !== 'unknown' ? basePrediction.intentTag : null
+    const learnedDoc = await learnTopicFromWeb(analysis.searchQuery, shortLang, domainHint).catch(() => null)
+    if (learnedDoc) {
+      learnedNew = true
+      hits = kbIndex.findSubjects(analysis.tokens, shortLang, 3)
+      top = hits[0]
+    }
+  }
+
+  if (top && (top.rel >= 0.36 || (top.span && top.span.share >= 0.3))) {
+    const focus = focusTerms(analysis.tokens, top, kbIndex)
+    const sentences = kbIndex.sentences(top.idx)
+    const subjectTokens = tokenize(top.doc.title, top.doc.lang)
+    const passage = bestPassage(
+      sentences,
+      focus,
+      (t) => kbIndex.idf(t),
+      analysis.wh,
+      subjectTokens,
+      top.doc.lang
+    )
+
+    const reply = formatKnowledgeAnswer(top, passage, kbIndex, learnedNew)
+    const sources = top.doc.url
+      ? [{ title: top.doc.title, source: top.doc.source, url: top.doc.url }]
+      : []
+
+    const relatedFollowUps = hits
+      .slice(1, 3)
+      .map((h) => `What is ${h.doc.title}?`)
+      .concat([`How is ${top.doc.title} used in practice?`])
+      .slice(0, 3)
+
+    const effectiveTag = top.doc.domain || basePrediction.intentTag
+    const matchedIntent = activeModel.intents.find((it) => it.tag === effectiveTag)
+
+    return {
+      ...basePrediction,
+      intentTag: effectiveTag,
+      intentTitle: matchedIntent ? matchedIntent.title : basePrediction.intentTitle,
+      confidence: Number(Math.max(basePrediction.confidence, Math.min(0.98, top.rel)).toFixed(4)),
+      reply,
+      sourceTitle: top.doc.title,
+      sourceUrl: top.doc.url || null,
+      sources,
+      followUps: relatedFollowUps.length ? relatedFollowUps : basePrediction.followUps,
+      learnedNew,
+      latencyMs: Number((performance.now() - start).toFixed(3))
+    }
+  }
+
+  // 6. Fallback to trained Softmax domain summary + scraped insights
+  const intentObj = activeModel.intents.find((it) => it.tag === basePrediction.intentTag)
+  let reply = basePrediction.reply
+  const sources = []
+  if (intentObj?.scraped_insights?.length > 0 && basePrediction.confidence >= 0.25) {
+    const insight = intentObj.scraped_insights[0]
+    if (insight.url) {
+      sources.push({ title: insight.title, source: insight.source, url: insight.url })
+    }
+    reply += `\n\n> 🌐 **Featured Knowledge (${insight.source})**: **${insight.title}**\n> ${insight.summary}`
+  }
+
+  return {
+    ...basePrediction,
+    reply,
+    sourceTitle: intentObj?.title || null,
+    sourceUrl: sources[0]?.url || null,
+    sources,
+    learnedNew: false,
+    latencyMs: Number((performance.now() - start).toFixed(3))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Word Error Rate (WER), CER & Word-Level Levenshtein Alignment
+// ---------------------------------------------------------------------------
+
 export function computeWERAndAlignment(referenceRaw = '', hypothesisRaw = '') {
   const refNorm = normalizeText(referenceRaw)
   const hypNorm = normalizeText(hypothesisRaw)
@@ -258,7 +598,6 @@ export function computeWERAndAlignment(referenceRaw = '', hypothesisRaw = '') {
   const n = refWords.length
   const m = hypWords.length
 
-  // DP cost matrix & operation backpointer matrix
   const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
   const ops = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(''))
 
@@ -295,7 +634,6 @@ export function computeWERAndAlignment(referenceRaw = '', hypothesisRaw = '') {
     }
   }
 
-  // Backtrace alignment
   let i = n
   let j = m
   const alignment = []
@@ -331,7 +669,6 @@ export function computeWERAndAlignment(referenceRaw = '', hypothesisRaw = '') {
   const wer = n > 0 ? (substitutions + deletions + insertions) / n : m > 0 ? 1 : 0
   const wordAccuracy = Math.max(0, 1 - wer)
 
-  // Character Error Rate (CER) ignoring extra spaces
   const refChars = refNorm.replace(/\s+/g, '').split('')
   const hypChars = hypNorm.replace(/\s+/g, '').split('')
   const charDist = levenshteinDistance(refChars, hypChars)

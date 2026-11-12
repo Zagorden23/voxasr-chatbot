@@ -1,0 +1,12 @@
+node_modules
+.git
+.wrangler
+dist
+data
+.env
+.env.*
+*.log
+__pycache__
+*.pyc
+.venv
+.vscode

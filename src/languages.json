@@ -5,7 +5,8 @@
     "name": "English (US)",
     "nativeName": "English (US)",
     "flag": "🇺🇸",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "en-GB",
@@ -13,7 +14,8 @@
     "name": "English (UK)",
     "nativeName": "English (UK)",
     "flag": "🇬🇧",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "en-IN",
@@ -21,7 +23,8 @@
     "name": "English (India)",
     "nativeName": "English (India)",
     "flag": "🇮🇳",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "es-ES",
@@ -29,7 +32,8 @@
     "name": "Spanish (Spain)",
     "nativeName": "Español (España)",
     "flag": "🇪🇸",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "es-MX",
@@ -37,7 +41,8 @@
     "name": "Spanish (Mexico)",
     "nativeName": "Español (México)",
     "flag": "🇲🇽",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "zh-CN",
@@ -45,7 +50,8 @@
     "name": "Chinese (Mandarin - Simplified)",
     "nativeName": "简体中文",
     "flag": "🇨🇳",
-    "script": "Hanzi"
+    "script": "Hanzi",
+    "rtl": false
   },
   {
     "code": "zh-TW",
@@ -53,7 +59,8 @@
     "name": "Chinese (Traditional)",
     "nativeName": "繁體中文",
     "flag": "🇹🇼",
-    "script": "Hanzi"
+    "script": "Hanzi",
+    "rtl": false
   },
   {
     "code": "hi-IN",
@@ -61,7 +68,8 @@
     "name": "Hindi",
     "nativeName": "हिन्दी",
     "flag": "🇮🇳",
-    "script": "Devanagari"
+    "script": "Devanagari",
+    "rtl": false
   },
   {
     "code": "ar-SA",
@@ -69,7 +77,8 @@
     "name": "Arabic",
     "nativeName": "العربية",
     "flag": "🇸🇦",
-    "script": "Arabic"
+    "script": "Arabic",
+    "rtl": true
   },
   {
     "code": "fr-FR",
@@ -77,7 +86,8 @@
     "name": "French (France)",
     "nativeName": "Français",
     "flag": "🇫🇷",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "ru-RU",
@@ -85,7 +95,8 @@
     "name": "Russian",
     "nativeName": "Русский",
     "flag": "🇷🇺",
-    "script": "Cyrillic"
+    "script": "Cyrillic",
+    "rtl": false
   },
   {
     "code": "pt-BR",
@@ -93,7 +104,8 @@
     "name": "Portuguese (Brazil)",
     "nativeName": "Português (Brasil)",
     "flag": "🇧🇷",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "de-DE",
@@ -101,7 +113,8 @@
     "name": "German",
     "nativeName": "Deutsch",
     "flag": "🇩🇪",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "ja-JP",
@@ -109,7 +122,8 @@
     "name": "Japanese",
     "nativeName": "日本語",
     "flag": "🇯🇵",
-    "script": "Kanji/Kana"
+    "script": "Kanji/Kana",
+    "rtl": false
   },
   {
     "code": "ko-KR",
@@ -117,7 +131,8 @@
     "name": "Korean",
     "nativeName": "한국어",
     "flag": "🇰🇷",
-    "script": "Hangul"
+    "script": "Hangul",
+    "rtl": false
   },
   {
     "code": "it-IT",
@@ -125,7 +140,8 @@
     "name": "Italian",
     "nativeName": "Italiano",
     "flag": "🇮🇹",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "bn-IN",
@@ -133,7 +149,8 @@
     "name": "Bengali",
     "nativeName": "বাংলা",
     "flag": "🇧🇩",
-    "script": "Bengali"
+    "script": "Bengali",
+    "rtl": false
   },
   {
     "code": "tr-TR",
@@ -141,7 +158,8 @@
     "name": "Turkish",
     "nativeName": "Türkçe",
     "flag": "🇹🇷",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "vi-VN",
@@ -149,7 +167,8 @@
     "name": "Vietnamese",
     "nativeName": "Tiếng Việt",
     "flag": "🇻🇳",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "id-ID",
@@ -157,7 +176,8 @@
     "name": "Indonesian",
     "nativeName": "Bahasa Indonesia",
     "flag": "🇮🇩",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "nl-NL",
@@ -165,7 +185,8 @@
     "name": "Dutch",
     "nativeName": "Nederlands",
     "flag": "🇳🇱",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "pl-PL",
@@ -173,7 +194,8 @@
     "name": "Polish",
     "nativeName": "Polski",
     "flag": "🇵🇱",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "fa-IR",
@@ -181,7 +203,8 @@
     "name": "Persian",
     "nativeName": "فارسی",
     "flag": "🇮🇷",
-    "script": "Arabic"
+    "script": "Arabic",
+    "rtl": true
   },
   {
     "code": "sw-KE",
@@ -189,7 +212,8 @@
     "name": "Swahili",
     "nativeName": "Kiswahili",
     "flag": "🇰🇪",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "ta-IN",
@@ -197,7 +221,8 @@
     "name": "Tamil",
     "nativeName": "தமிழ்",
     "flag": "🇮🇳",
-    "script": "Tamil"
+    "script": "Tamil",
+    "rtl": false
   },
   {
     "code": "te-IN",
@@ -205,7 +230,8 @@
     "name": "Telugu",
     "nativeName": "తెలుగు",
     "flag": "🇮🇳",
-    "script": "Telugu"
+    "script": "Telugu",
+    "rtl": false
   },
   {
     "code": "ur-PK",
@@ -213,7 +239,8 @@
     "name": "Urdu",
     "nativeName": "اردو",
     "flag": "🇵🇰",
-    "script": "Arabic"
+    "script": "Arabic",
+    "rtl": true
   },
   {
     "code": "mr-IN",
@@ -221,7 +248,8 @@
     "name": "Marathi",
     "nativeName": "मराठी",
     "flag": "🇮🇳",
-    "script": "Devanagari"
+    "script": "Devanagari",
+    "rtl": false
   },
   {
     "code": "uk-UA",
@@ -229,7 +257,8 @@
     "name": "Ukrainian",
     "nativeName": "Українська",
     "flag": "🇺🇦",
-    "script": "Cyrillic"
+    "script": "Cyrillic",
+    "rtl": false
   },
   {
     "code": "el-GR",
@@ -237,7 +266,8 @@
     "name": "Greek",
     "nativeName": "Ελληνικά",
     "flag": "🇬🇷",
-    "script": "Greek"
+    "script": "Greek",
+    "rtl": false
   },
   {
     "code": "sv-SE",
@@ -245,7 +275,8 @@
     "name": "Swedish",
     "nativeName": "Svenska",
     "flag": "🇸🇪",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
   },
   {
     "code": "he-IL",
@@ -253,7 +284,8 @@
     "name": "Hebrew",
     "nativeName": "עברית",
     "flag": "🇮🇱",
-    "script": "Hebrew"
+    "script": "Hebrew",
+    "rtl": true
   },
   {
     "code": "th-TH",
@@ -261,7 +293,8 @@
     "name": "Thai",
     "nativeName": "ไทย",
     "flag": "🇹🇭",
-    "script": "Thai"
+    "script": "Thai",
+    "rtl": false
   },
   {
     "code": "cs-CZ",
@@ -269,6 +302,16 @@
     "name": "Czech",
     "nativeName": "Čeština",
     "flag": "🇨🇿",
-    "script": "Latin"
+    "script": "Latin",
+    "rtl": false
+  },
+  {
+    "code": "ro-RO",
+    "iso": "ro",
+    "name": "Romanian",
+    "nativeName": "Română",
+    "flag": "🇷🇴",
+    "script": "Latin",
+    "rtl": false
   }
 ]

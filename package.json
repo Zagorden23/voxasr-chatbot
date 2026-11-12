@@ -1,23 +1,24 @@
 {
   "name": "webapp",
+  "version": "3.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "dev": "vite",
-    "dev:sandbox": "wrangler pages dev dist --d1=webapp-production --local --ip 0.0.0.0 --port 3000",
-    "build": "vite build",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "build": "node -e \"console.log('Pure JS Node server ready (no build step required)')\"",
     "train": "python training/train_chatbot.py",
     "upgrade": "python training/auto_train_pipeline.py",
     "harvest": "python training/knowledge_harvester.py",
     "daemon": "python training/upgrade_server.py",
-    "preview": "wrangler pages dev dist",
-    "deploy": "npm run build && wrangler pages deploy dist",
-    "deploy:prod": "npm run build && wrangler pages deploy dist --project-name webapp",
-    "clean-port": "fuser -k 3000/tcp 2>/dev/null || true",
-    "test": "curl http://localhost:3000",
-    "db:migrate:local": "wrangler d1 migrations apply webapp-production --local"
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
-    "hono": "^4.13.14"
+    "@hono/node-server": "^2.1.8",
+    "hono": "^4.13.14",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@hono/vite-build": "^1.11.1",

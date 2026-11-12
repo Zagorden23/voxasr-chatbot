@@ -1,78 +1,70 @@
-# VoxASR — Multilingual Computer Science & Mathematical AI Assistant
+# VoxASR — Commercial Multilingual Voice ASR & CS/Math AI Assistant
 
 ## Project Overview
-- **Name**: VoxASR (`webapp`)
-- **Mission**: An intelligent Voice & Text AI Chatbot trained across **35 certified international languages** and all core pillars of **Computer Science** and **Mathematical Computing**, featuring a **continuous automated web-scraping harvester** (Wikipedia & ArXiv) and **ML-DL retraining pipeline** with sub-millisecond pure JavaScript edge inference.
-- **Tech Stack**:
-  - **Machine Learning & Deep Learning (Python 3.12)**: `scikit-learn` + `NumPy` + `SciPy` (`training/train_chatbot.py`, `training/auto_train_pipeline.py`)
-  - **Automated Knowledge Harvester**: `requests` + `BeautifulSoup` + `xml.etree` (`training/knowledge_harvester.py`, Wikipedia REST API, ArXiv Atom API)
-  - **Continuous Upgrade Daemon (Port 3001)**: `training/upgrade_server.py`
-  - **Backend & Pure JS Edge Inference (Zero TypeScript)**: Hono (`src/index.js`, `src/inference.js`) + exported Softmax weights (`src/model/chatbot_model.json`)
-  - **Frontend (Pure JavaScript + React 18)**: `public/static/app.js` + TailwindCSS + Web Speech API (35 SpeechRecognition & SpeechSynthesis locales) + Web Audio API (`AnalyserNode` live spectrum)
-  - **Database**: Cloudflare D1 (SQLite) for multilingual chat sessions, ASR confidence logs, and WER evaluations
+**VoxASR** (`webapp`) is a commercial-grade Voice & Text AI Chatbot built for **Computer Science**, **Mathematical Computing**, and **Automatic Speech Recognition (ASR)** across **35 certified international languages**, engineered for **Render** deployment (`Node.js` + `Hono` + `PostgreSQL` / `SQLite`).
 
-## Key Upgrades & Features
+### Core Architecture & Features
+- **Hybrid AI Inference (`src/inference.js` + `src/knowledge.js`)**:
+  - **Sub-millisecond Softmax Neural Classifier**: Sublinear TF-IDF (Word 1-2g + Char 3-4g + CJK) weights trained in Python (`training/train_chatbot.py`) and exported as portable JSON (`src/model/chatbot_model.json`).
+  - **Okapi BM25 Extractive Knowledge Pool**: Indexes sharded Wikipedia & ArXiv articles (`public/static/kb/`) with question analysis, WH-type hints, synonym matching, and side-by-side comparisons (`Compare A and B`).
+  - **Self-Learning Live Web Scraper (`src/web_learner.js`)**: Automatically fetches unknown topics from Wikipedia MediaWiki API & ArXiv Atom API on demand, indexes them live into memory, and persists them to PostgreSQL / SQLite across restarts.
+  - **Injection-Safe Mathematical Evaluator**: Evaluates arithmetic, powers, trig, and logarithmic expressions directly without `eval()`.
+  - **Multi-Turn Context Resolution**: Resolves follow-up pronoun queries using the session's active topic.
+- **35 Certified World Languages (`src/languages.json`)**:
+  - Full Web Speech API (STT) & SpeechSynthesis (TTS) support across European, Asian, Indic, Middle Eastern, and African locales, with automatic RTL layout for Arabic, Persian, Urdu, and Hebrew.
+- **Commercial Persistence & Security (`src/db.js`, `src/index.js`)**:
+  - **Render Managed PostgreSQL (`DATABASE_URL`)** in production with automatic **SQLite (`node:sqlite`)** fallback for zero-config local development.
+  - Full session history (create, search, rename, delete, Markdown/JSON export), per-message thumbs-up/down feedback, WER/CER benchmarking history, live usage analytics (`/api/analytics`), security headers, sliding-window rate limiting, and `/health` readiness checks.
 
-### 1. 35 Certified World Languages Support
-- Comprehensive support for UN official and ISO-639 / BCP-47 certified world languages:
-  - **European**: English (`en-US`, `en-GB`, `en-IN`), Spanish (`es-ES`, `es-MX`), French (`fr-FR`), German (`de-DE`), Italian (`it-IT`), Portuguese (`pt-BR`), Dutch (`nl-NL`), Polish (`pl-PL`), Czech (`cs-CZ`), Swedish (`sv-SE`), Ukrainian (`uk-UA`), Greek (`el-GR`).
-  - **Asian & Indic**: Mandarin Chinese (`zh-CN`, `zh-TW`), Hindi (`hi-IN`), Japanese (`ja-JP`), Korean (`ko-KR`), Bengali (`bn-IN`), Vietnamese (`vi-VN`), Indonesian (`id-ID`), Tamil (`ta-IN`), Telugu (`te-IN`), Marathi (`mr-IN`), Thai (`th-TH`).
-  - **Middle Eastern & African**: Arabic (`ar-SA`), Russian (`ru-RU`), Turkish (`tr-TR`), Persian/Farsi (`fa-IR`), Urdu (`ur-PK`), Hebrew (`he-IL`), Swahili (`sw-KE`).
-- **Unicode-Preserving Multi-Script Tokenization**: Unified NFKC normalization in Python and JavaScript retaining Latin, Devanagari, Hanzi, Cyrillic, Arabic, Greek, Kana, and Hangul scripts.
-- **Dynamic SpeechRecognition Locale**: Switch speech recognition and Text-to-Speech voices instantly in the UI.
-
-### 2. Vast Knowledge Pool in Computer Science & Mathematical Computing
-Expert knowledge coverage across 12 pillars:
-1. **Algorithms & Complexity**: Dijkstra, A*, Dynamic Programming, NP-completeness, Cook-Levin, Big-O asymptotic analysis, Master Theorem.
-2. **Advanced Data Structures**: B-Trees, B+ Trees, Red-Black Trees, Bloom Filters, Segment Trees, Disjoint-Set Union (Union-Find), HNSW Vector Indexing.
-3. **Numerical Analysis & Mathematical Computing**: Singular Value Decomposition (SVD), QR/LU decompositions, Runge-Kutta RK4, Cooley-Tukey FFT, Newton-Raphson, IEEE 754 precision, Monte Carlo.
-4. **Machine Learning & Deep Learning (ML/DL)**: Backpropagation, Scaled Dot-Product Attention, Transformers, RoPE, AdamW, Diffusion Models, Loss Functions, Regularization, RLHF.
-5. **Speech AI & Automatic Speech Recognition (ASR)**: OpenAI Whisper, Conformer, CTC Loss, RNN-T, Wav2Vec 2.0, Mel-scale filterbanks, Log-Mel Spectrograms, VAD.
-6. **Theoretical CS, Automata & Discrete Math**: Turing Machines, Chomsky Hierarchy, Halting Problem, Graph Theory, Modular Arithmetic, Fermat's Little Theorem.
-7. **Operating Systems & Distributed Systems**: CAP Theorem, PACELC, Raft Consensus, Virtual Memory & Paging, TLB, Mutex vs Semaphore, Consistent Hashing.
-8. **Compilers & Programming Language Theory**: Lexing, Parsing (LL/LR/Pratt), Abstract Syntax Tree (AST), LLVM IR, SSA Form, Type Inference, Generational GC.
-9. **Modern Cryptography & Cyber Security**: RSA, Elliptic Curve Cryptography (ECC), AES-GCM, Zero-Knowledge Proofs (ZK-SNARKs), Post-Quantum Cryptography (ML-KEM / Kyber).
-10. **Linear Algebra, Calculus & Probability for Computing**: Jacobian & Hessian matrices, Eigenvalues, Bayes' Theorem, Markov Chains, Central Limit Theorem.
-11. **GPU Computing & High-Performance Computing (HPC)**: CUDA architecture, Warps, Thread Blocks, OpenMP, MPI, BLAS GEMM, Tensor Cores.
-12. **Database Internals & Vector Search**: B+ Trees vs LSM Trees, ACID, MVCC, In-memory MemTable, SSTables, Vector Cosine/L2 similarity search.
-
-### 3. Continuous Automated Web Scraping & ML-DL Retraining
-- **Automated Harvester (`training/knowledge_harvester.py`)**: Crawls Wikipedia REST API and ArXiv Atom API across computer science categories (`cs.AI`, `cs.LG`, `cs.DS`, `math.NA`, `math.OC`), extracts summaries, mathematical formulas, and auto-generates multilingual query patterns.
-- **Dynamic Knowledge Pool (`training/dynamic_knowledge_pool.json`)**: Persists ingested articles and expanding training patterns.
-- **ML-DL Auto-Train Pipeline (`training/auto_train_pipeline.py`)**: Ingests new articles, extracts 5,000+ Sublinear TF-IDF features, retrains the Softmax classifier with 5-fold cross validation, and exports portable JSON weights (`src/model/chatbot_model.json`).
-- **Continuous Upgrade Daemon (`training/upgrade_server.py`)**: Runs on `127.0.0.1:3001` to accept one-click upgrade triggers and on-demand topic queries.
-- **Interactive UI Dashboard**: Dedicated "Knowledge Base & Auto-Upgrade" tab with live counters, one-click upgrade button, and on-demand topic input.
-
-## Functional Entry URIs
+## API Endpoints
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/` | React 18 SPA (Voice Chat, Knowledge Base, WER Lab, Model Inspector) |
-| `GET` | `/api/model` | Model training metrics, 5-fold CV score, and architecture details |
-| `GET` | `/api/languages` | Lists all 35 certified world languages with BCP-47 codes & flags |
-| `GET` | `/api/knowledge/status` | Real-time dynamic knowledge pool statistics and upgrade history |
-| `POST` | `/api/knowledge/upgrade` | Triggers background web scraping & ML-DL model retraining |
-| `POST` | `/api/knowledge/scrape` | On-demand web scraping for any specific CS or mathematical topic |
-| `POST` | `/api/chat` | Multilingual intent classification & technical explanations |
-| `GET` | `/api/sessions` | Lists recent chat sessions stored in Cloudflare D1 |
-| `GET` | `/api/sessions/:id` | Retrieves full session history |
-| `DELETE` | `/api/sessions/:id` | Deletes a chat session |
+| `GET` | `/` | React 18 SPA (Voice Chat, Knowledge Pool, WER Lab, Analytics & Model) |
+| `GET` | `/health` | Render health & database/KB readiness check |
+| `GET` | `/api/languages` | Lists all 35 certified world languages (with RTL metadata) |
+| `GET` | `/api/model` | Model architecture, CV metrics, and KB stats |
+| `GET` | `/api/analytics` | Usage telemetry (sessions, voice vs text, feedback, latency) |
+| `GET` | `/api/knowledge/status` | Live BM25 knowledge pool & upgrade status |
+| `GET` | `/api/knowledge/search` | Instant search over indexed CS/Math articles |
+| `POST` | `/api/knowledge/upgrade` | Triggers live ArXiv & Wikipedia knowledge harvest |
+| `POST` | `/api/knowledge/scrape` | On-demand scraping & persistence for any topic |
+| `POST` | `/api/chat` | Hybrid multilingual chat inference & DB persistence |
+| `POST` | `/api/chat/feedback` | Records thumbs-up/down message rating |
+| `GET` | `/api/sessions` | Lists recent chat sessions |
+| `GET` | `/api/sessions/:id` | Retrieves session messages |
+| `PATCH` | `/api/sessions/:id` | Renames a session |
+| `DELETE` | `/api/sessions/:id` | Deletes a session |
+| `GET` | `/api/sessions/:id/export` | Exports conversation as Markdown or JSON |
 | `POST` | `/api/wer` | Computes WER, CER, and word-level Levenshtein alignment |
-| `GET` | `/api/wer/history` | Lists recent WER benchmark runs |
+| `GET` / `DELETE` | `/api/wer/history` | Lists or clears WER benchmark history |
 
-## User Guide
+## Local Development
 ```bash
-# 1. Harvest latest CS/Math knowledge and retrain the model
-npm run upgrade
+# Install Node dependencies
+npm install
 
-# 2. Or retrain directly from current knowledge pool
+# Run automated tests
+npm test
+
+# Start server (binds 0.0.0.0:10000 by default)
+npm start
+
+# Optional: Refresh Wikipedia KB shards & retrain classifier (requires Python 3.12+)
+npm run harvest -- --max 600 --per-domain 45 --no-vital
 npm run train
-
-# 3. Start the continuous upgrade background daemon
-npm run daemon
-
-# 4. Build pure JavaScript distribution
-npm run build
-
-# 5. Start web server locally with PM2 (or wrangler)
-pm2 start ecosystem.config.cjs
 ```
+
+## Deploying to Render
+
+### Method 1: Render Blueprint (`render.yaml`) — Recommended
+1. Push the repository (`webapp` directory as repo root, or configure `rootDir` if using a monorepo) to GitHub, GitLab, or Bitbucket.
+2. Validate the Blueprint locally:
+   ```bash
+   render blueprints validate render.yaml
+   ```
+3. In the Render Dashboard, click **New + -> Blueprint** and select your repository (or open `https://dashboard.render.com/blueprint/new?repo=<YOUR_HTTPS_REPO_URL>`).
+4. Review the `voxasr-chatbot` web service and `voxasr-db` PostgreSQL database, then click **Apply**.
+   - Note: `render.yaml` uses `plan: free` for quick evaluation (Render free Postgres expires after 30 days; switch `plan` to `0.1c-256mb` for persistent production storage and `0.5c-512mb` for always-on web compute).
+
+### Method 2: Docker on Render (Node.js + Python ML)
+If you want to run Python `scikit-learn` retraining (`training/train_chatbot.py`) inside the container as well, switch `runtime: docker` in `render.yaml` using the included `Dockerfile` and `.dockerignore`.
