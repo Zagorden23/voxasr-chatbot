@@ -252,14 +252,19 @@ function dedupeSourcesList(docs, lang = 'en', maxSources = 6) {
     const keyTitle = `${srcLower}::${d.title.toLowerCase()}`
     if (seenUrls.has(url) || seenTitles.has(keyTitle)) continue
 
-    // Prevent single encyclopedia/index from crowding out independent websites
+    const hasNonWiki = docs.some(
+      (item) =>
+        item &&
+        !String(item.source || '').toLowerCase().includes('wikipedia') &&
+        item.url !== url
+    )
     const bucket = srcLower.includes('wikipedia')
       ? 'wikipedia'
       : srcLower.includes('openalex') || srcLower.includes('crossref')
       ? 'academic'
       : srcLower
     const cap = bucket === 'wikipedia' || bucket === 'academic' ? 1 : 2
-    if ((sourceTypeCount.get(bucket) || 0) >= cap && out.length >= 2) continue
+    if ((sourceTypeCount.get(bucket) || 0) >= cap && (hasNonWiki || out.length >= 2)) continue
 
     seenUrls.add(url)
     seenTitles.add(keyTitle)

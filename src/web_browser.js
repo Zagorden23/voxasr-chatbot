@@ -732,6 +732,78 @@ export async function browseWebForQuery(query, analysis = {}, domainHint = null,
   )
 }
 
+const STACKEXCHANGE_DOMAIN_MAP = {
+  physics_astronomy_earth: 'physics',
+  chemistry_biology_medicine: 'biology',
+  engineering_robotics_energy: 'engineering',
+  commerce_finance_economics: 'economics',
+  music_audio_theory: 'music',
+  sports_athletics_games: 'sports',
+  entertainment_cinema_gaming: 'movies',
+  history_geography_law_society: 'history',
+  numerical_analysis: 'math',
+  calculus_linear_algebra_prob: 'math',
+  theoretical_cs_discrete_math: 'cs',
+  algorithms_complexity: 'cs',
+  data_structures: 'stackoverflow',
+  compilers_programming_languages: 'stackoverflow',
+  systems_distributed_computing: 'stackoverflow',
+  cryptography_security: 'security',
+  machine_learning_dl: 'stats',
+  nlp_large_language_models: 'ai',
+  database_vector_search: 'dba'
+}
+
+async function fetchStackExchangeInfo(query, domainHint = '') {
+  try {
+    const site = STACKEXCHANGE_DOMAIN_MAP[domainHint] || 'stackoverflow'
+    const shortQ = tokenize(query, 'en', false).slice(0, 5).join(' ') || query
+    const url = `https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q=${encodeURIComponent(shortQ)}&site=${site}&pagesize=2&filter=withbody`
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) })
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data?.items || [])
+      .filter((it) => it.title && it.body)
+      .slice(0, 2)
+      .map((it) => ({
+        id: `se_${site}_${it.question_id}`,
+        title: cleanExtract(decodeEntities(it.title)),
+        source: `${site}.stackexchange.com`,
+        url: it.link || `https://${site}.stackexchange.com/questions/${it.question_id}`,
+        extract: truncateAtSentence(
+          cleanExtract(decodeEntities(`${it.title}. ${String(it.body).replace(/<[^>]{1,200}>/g, ' ')}`)),
+          1400
+        ),
+        _liveWeb: true
+      }))
+  } catch {
+    return []
+  }
+}
+
+async function fetchEuropePmcWorks(query) {
+  try {
+    const shortQ = tokenize(query, 'en', false).slice(0, 5).join(' ') || query
+    const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(shortQ)}&format=json&resultType=core&pageSize=2`
+    const res = await fetch(url, { signal: AbortSignal.timeout(3200) })
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data?.resultList?.result || [])
+      .filter((r) => r.title && r.abstractText)
+      .slice(0, 2)
+      .map((r) => ({
+        id: `epmc_${r.id || r.pmid || Math.random().toString(36).slice(2, 8)}`,
+        title: cleanExtract(decodeEntities(r.title)),
+        source: 'EuropePMC (EMBL-EBI)',
+        url: r.pmid ? `https://europepmc.org/article/MED/${r.pmid}` : `https://europepmc.org/search?query=${encodeURIComponent(shortQ)}`,
+        extract: truncateAtSentence(cleanExtract(decodeEntities(r.abstractText)), 1500),
+        _liveWeb: true
+      }))
+  } catch {
+    return []
+  }
+}
+
 async function browseWebForQueryInner(query, analysis = {}, domainHint = null, options = {}) {
   const cleanQuery = String(query || '').trim()
   if (!cleanQuery && (!analysis.directUrls || analysis.directUrls.length === 0)) {
@@ -769,8 +841,12 @@ async function browseWebForQueryInner(query, analysis = {}, domainHint = null, o
   const domain = String(domainHint || '').toLowerCase()
   const verticalTasks = []
 
-  if (domain === 'chemistry_biology_medicine' || /\b(acid|molecule|chemical|compound|enzyme|vitamin|protein|drug)\b/.test(lower)) {
+  if (domain === 'chemistry_biology_medicine' || /\b(acid|molecule|chemical|compound|enzyme|vitamin|protein|drug|photosynthesis|dna|cell|medicine|biology)\b/.test(lower)) {
     verticalTasks.push(fetchPubChemCompound(cleanQuery))
+    verticalTasks.push(fetchEuropePmcWorks(cleanQuery))
+  }
+  if (STACKEXCHANGE_DOMAIN_MAP[domain]) {
+    verticalTasks.push(fetchStackExchangeInfo(cleanQuery, domain))
   }
   if (domain === 'arts_literature_design' || /\b(novel|book|poem|author|painting|renaissance|sculpture|literature)\b/.test(lower)) {
     verticalTasks.push(fetchOpenLibraryBooks(cleanQuery))
@@ -804,12 +880,12 @@ async function browseWebForQueryInner(query, analysis = {}, domainHint = null, o
     verticalTasks.push(fetchCrossRefWorks(cleanQuery, 1))
   }
 
-  // 3. Fire broad multi-web discovery in parallel with per-source deadlines
+  const wikiSearchQ = qTokens.length > 4 ? qTokens.slice(0, 4).join(' ') : cleanQuery
   const [ddgResults, ddgIaDocs, wikiTitles, wikidataDocs, ...verticalResults] = await Promise.all([
     withDeadline(searchDuckDuckGoWeb(cleanQuery), 4200, []),
     withDeadline(fetchDuckDuckGoInstantAnswer(cleanQuery), 3200, []),
-    withDeadline(searchWikipediaTitles(cleanQuery, lang, 2), 3400, []),
-    withDeadline(fetchWikidataEntities(cleanQuery, lang), 3000, []),
+    withDeadline(searchWikipediaTitles(wikiSearchQ, lang, 2), 3400, []),
+    withDeadline(fetchWikidataEntities(wikiSearchQ, lang), 3000, []),
     ...verticalTasks.map((p) => withDeadline(p, 3800, []))
   ])
 
