@@ -1,1 +1,51 @@
-h1 { font-family: Arial, Helvetica, sans-serif; }
+/* VoxASR Custom Styles & Mic Animations */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.65);
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 14px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.mic-recording-pulse {
+  animation: pulseRing 1.6s infinite;
+}
+
+.glass-panel {
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}

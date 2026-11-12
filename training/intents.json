@@ -1,0 +1,348 @@
+{
+  "metadata": {
+    "domain": "Automatic Speech Recognition (ASR) & Voice AI",
+    "version": "1.1.0",
+    "description": "Intent dataset for training the VoxASR Chatbot in Python"
+  },
+  "intents": [
+    {
+      "tag": "greeting",
+      "title": "Greeting & Mic Check",
+      "patterns": [
+        "hello",
+        "hi",
+        "hey there",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "greetings",
+        "hi chatbot",
+        "hello assistant",
+        "hey voice bot",
+        "are you listening",
+        "can you hear me",
+        "testing microphone",
+        "mic check one two",
+        "hello can you hear my voice",
+        "hey voxasr",
+        "start voice chat",
+        "whats up assistant"
+      ],
+      "responses": [
+        "Hello! I am **VoxASR**, your Automatic Speech Recognition assistant. My intent neural classifier was trained in **Python** (`training/train_chatbot.py`) and runs natively in **JavaScript**! Click the microphone button to speak live or ask me about ASR, Whisper, WER, Conformer, or Acoustic Modeling.",
+        "Hi there! Microphone check passed—both live voice dictation and text chat are ready. Ask me how Speech-to-Text works, how Whisper is trained, or evaluate transcripts in the **WER Evaluator** tab!"
+      ],
+      "follow_ups": [
+        "What is Automatic Speech Recognition?",
+        "How does OpenAI Whisper work?",
+        "How do you calculate Word Error Rate?"
+      ]
+    },
+    {
+      "tag": "asr_overview",
+      "title": "ASR Fundamentals & Pipeline",
+      "patterns": [
+        "what is asr",
+        "what is automatic speech recognition",
+        "explain automatic speech recognition",
+        "explain speech recognition",
+        "how does speech to text work",
+        "what is stt",
+        "what is speech to text",
+        "how do computers understand human speech",
+        "pipeline of automatic speech recognition",
+        "speech recognition overview",
+        "how does voice recognition convert audio to text",
+        "basics of speech to text systems",
+        "introduction to automatic speech recognition",
+        "explain the asr pipeline",
+        "stages of speech recognition",
+        "how does asr convert speech into text",
+        "define automatic speech recognition"
+      ],
+      "responses": [
+        "**Automatic Speech Recognition (ASR)**—also called Speech-to-Text (STT)—converts spoken audio waveforms into written text.\n\nA modern ASR pipeline has **4 core stages**:\n1. **Audio Preprocessing**: Resampling (typically 16 kHz mono PCM), Voice Activity Detection (VAD), and noise suppression.\n2. **Feature Extraction**: Converting waveforms via Short-Time Fourier Transform (STFT) into **80-channel Log-Mel Spectrograms** or **MFCCs**.\n3. **Acoustic / End-to-End Neural Model**: Mapping audio frames to subword tokens using **Conformer**, **Whisper (Transformer)**, **Wav2Vec 2.0**, or **RNN-Transducer (RNN-T)**.\n4. **Decoding & Language Modeling**: Beam search, CTC prefix decoding, or shallow fusion with an external Language Model to output punctuated text."
+      ],
+      "follow_ups": [
+        "What are MFCCs and Log-Mel Spectrograms?",
+        "Compare CTC, RNN-T, and Attention models",
+        "How does OpenAI Whisper work?"
+      ]
+    },
+    {
+      "tag": "feature_extraction",
+      "title": "Audio Features (MFCC & Spectrograms)",
+      "patterns": [
+        "what is mfcc",
+        "what are mfccs",
+        "mel frequency cepstral coefficients",
+        "what is a mel spectrogram",
+        "explain log mel spectrogram",
+        "feature extraction in speech recognition",
+        "stft short time fourier transform audio",
+        "how is audio converted into features",
+        "windowing and framing in speech processing",
+        "sampling rate 16khz speech",
+        "why use mel scale in audio",
+        "mel filterbanks in asr",
+        "acoustic features for speech",
+        "mfcc vs mel spectrogram",
+        "25ms window 10ms stride audio framing",
+        "fourier transform spectrogram speech"
+      ],
+      "responses": [
+        "**Audio Feature Extraction** transforms raw 1D waveforms into 2D time-frequency representations aligned with human pitch perception:\n\n- **Framing & Windowing**: 16 kHz audio is sliced into **25 ms frames** with a **10 ms hop (stride)** using a Hann/Hamming window.\n- **STFT**: Computes the frequency magnitude spectrum per frame.\n- **Log-Mel Spectrogram**: Applies **80 or 128 triangular Mel-filterbanks** (logarithmically spaced to match the human cochlea) + log compression. Standard input for **Whisper** and **Conformer**.\n- **MFCCs**: Applies Discrete Cosine Transform (DCT) to decorrelate log-mel filterbanks (classic GMM-HMM feature).\n- **Learned CNN Encoders**: Self-supervised models like **Wav2Vec 2.0** learn features directly from raw 16 kHz waveforms using multi-layer 1D convolutions."
+      ],
+      "follow_ups": [
+        "How does Wav2Vec 2.0 learn from raw audio?",
+        "What is an Acoustic Model vs Language Model?",
+        "How does VAD help ASR?"
+      ]
+    },
+    {
+      "tag": "acoustic_language_models",
+      "title": "Hybrid Acoustic/Language Models",
+      "patterns": [
+        "what is an acoustic model",
+        "what is a language model in asr",
+        "difference between acoustic model and language model",
+        "acoustic model vs language model",
+        "gmm hmm speech recognition",
+        "hybrid dnn hmm vs end to end asr",
+        "lexicon and pronunciation dictionary",
+        "phonemes in speech recognition",
+        "bayes rule in asr",
+        "how do language models improve speech recognition",
+        "shallow fusion and beam search decoding",
+        "pronunciation model phonemes graphemes",
+        "kaldi gmm hmm tdnn",
+        "homophones in speech recognition",
+        "beam search decoder language model"
+      ],
+      "responses": [
+        "Classical ASR formulates transcription via **Bayes' Rule**, finding word sequence $W^*$ maximizing $P(X|W) \\cdot P(W)$:\n\n- **Acoustic Model $P(X|W)$**: Predicts phonetic state probabilities (senones/phonemes) from acoustic frames $X$ (e.g., GMM-HMM, Kaldi TDNN-HMM).\n- **Pronunciation Lexicon**: Maps words to phoneme sequences (`RECOGNIZE -> R EH K AH G N AY Z`).\n- **Language Model $P(W)$**: Scores word sequence likelihood via n-grams or neural LMs to disambiguate homophones like *\"recognize speech\"* vs. *\"wreck a nice beach\"*.\n\nModern **End-to-End (E2E) ASR** merges all three components into one neural network outputting subword tokens directly!"
+      ],
+      "follow_ups": [
+        "Compare CTC, RNN-T, and Attention models",
+        "What is Conformer architecture?",
+        "How do you calculate Word Error Rate?"
+      ]
+    },
+    {
+      "tag": "e2e_architectures",
+      "title": "CTC, RNN-T & Conformer Architectures",
+      "patterns": [
+        "what is ctc",
+        "what is ctc loss",
+        "connectionist temporal classification",
+        "what is rnn transducer",
+        "explain rnnt",
+        "what is conformer",
+        "what is conformer architecture",
+        "ctc vs rnnt vs attention",
+        "compare ctc rnnt and attention models",
+        "encoder decoder attention asr",
+        "streaming vs offline speech recognition",
+        "how does ctc blank token work",
+        "zipformer parakeet conformer",
+        "best architecture for real time streaming asr",
+        "listen attend and spell las"
+      ],
+      "responses": [
+        "Modern End-to-End ASR uses **3 alignment architectures** paired with a **Conformer** encoder:\n\n1. **CTC (Connectionist Temporal Classification)**: Uses a `<blank>` symbol and dynamic programming to align audio frames to text without frame-level labels. Fast & non-autoregressive, but assumes output tokens are conditionally independent.\n2. **RNN-Transducer (RNN-T)**: Joins an Acoustic Encoder + Prediction Network + Joint Network. Supports **low-latency streaming** without CTC's independence assumption (used in on-device ASR & NVIDIA Parakeet).\n3. **Attention Encoder-Decoder (AED / Whisper)**: Cross-attends over encoded audio frames autoregressively—delivering top offline accuracy, capitalization, and punctuation.\n4. **Conformer Backbone**: Combines **Multi-Head Self-Attention** (global context) + **Depthwise Convolution** (local phonetic detail) inside a Macaron feed-forward block."
+      ],
+      "follow_ups": [
+        "How does OpenAI Whisper work?",
+        "What is Voice Activity Detection (VAD)?",
+        "What datasets are used to train ASR?"
+      ]
+    },
+    {
+      "tag": "whisper_model",
+      "title": "OpenAI Whisper & Speech Foundation Models",
+      "patterns": [
+        "how does whisper work",
+        "how does openai whisper work",
+        "tell me about openai whisper",
+        "explain whisper model",
+        "whisper large v3 turbo",
+        "faster whisper ctranslate2",
+        "whisper cpp quantization",
+        "multilingual speech recognition whisper",
+        "whisper hallucination problem",
+        "fine tuning whisper",
+        "distil whisper",
+        "whisper architecture transformer",
+        "openai whisper speech to text",
+        "speech foundation models whisper canary"
+      ],
+      "responses": [
+        "**OpenAI Whisper** is a weakly-supervised Transformer Encoder-Decoder trained on **680k–5M hours** of multilingual & multitask web audio:\n\n- **Frontend**: Resamples audio to 16 kHz, pads/trims to 30s windows, computes **80/128-channel Log-Mel Spectrograms**, and downsamples 2x via two 1D Conv layers + GELU.\n- **Multitask Decoder Tokens**: Uses control tokens (`<|startoftranscript|>`, `<|lang|>`, `<|transcribe|>`, `<|translate|>`, `<|timestamps|>`) so a single model handles ASR, language ID, voice translation, and word timestamps.\n- **Deployment Tips**:\n  - Use **Faster-Whisper (CTranslate2 INT8)** or **Whisper-large-v3-turbo** (4 decoder layers instead of 32) for 4x–6x speedups.\n  - Pre-filter silence with **Silero VAD** to prevent decoder looping/hallucinations!"
+      ],
+      "follow_ups": [
+        "What is Voice Activity Detection (VAD)?",
+        "How does Wav2Vec 2.0 differ from Whisper?",
+        "How do you calculate Word Error Rate?"
+      ]
+    },
+    {
+      "tag": "self_supervised_asr",
+      "title": "Self-Supervised Speech (Wav2Vec 2.0 & HuBERT)",
+      "patterns": [
+        "what is wav2vec",
+        "how does wav2vec 2.0 work",
+        "how does wav2vec 2.0 differ from whisper",
+        "how does wav2vec 2.0 learn from raw audio",
+        "hubert speech model",
+        "wavlm microsoft",
+        "self supervised learning in speech",
+        "low resource speech recognition",
+        "train asr with little labeled data",
+        "contrastive learning raw audio",
+        "xlsr meta mms multilingual speech",
+        "wav2vec vs hubert vs wavlm"
+      ],
+      "responses": [
+        "**Self-Supervised Speech Models** (**Wav2Vec 2.0**, **HuBERT**, **WavLM**, **Meta MMS**) pre-train on massive **unlabeled raw audio** and fine-tune with minimal labeled data (even 10 minutes!):\n\n- **Wav2Vec 2.0**: Encodes raw 16 kHz PCM waveforms with a 7-layer CNN, masks latent spans, and trains via contrastive loss over quantized speech units.\n- **HuBERT**: Uses iterative k-means clustering on MFCC/latent features to create discrete acoustic targets for masked prediction.\n- **WavLM**: Adds masked speech denoising during pre-training, achieving top results on **speaker diarization** and noisy ASR.\n- **Whisper vs. Wav2Vec 2.0**: Whisper is trained with weak supervision (audio+transcripts) as Seq2Seq; Wav2Vec 2.0 is self-supervised on unlabeled audio and usually fine-tuned with a **CTC head**."
+      ],
+      "follow_ups": [
+        "What is Speaker Diarization?",
+        "What ASR datasets are used for training?",
+        "Explain CTC, RNN-T, and Conformer"
+      ]
+    },
+    {
+      "tag": "wer_evaluation",
+      "title": "Word Error Rate (WER) & CER Evaluation",
+      "patterns": [
+        "what is wer",
+        "what is word error rate",
+        "explain word error rate",
+        "word error rate formula",
+        "how do you calculate word error rate",
+        "how to calculate wer",
+        "calculate wer",
+        "character error rate cer",
+        "substitutions deletions insertions asr",
+        "levenshtein edit distance in asr",
+        "how to evaluate speech recognition accuracy",
+        "why can wer exceed 100 percent",
+        "good word error rate benchmark",
+        "jiwer wer calculation"
+      ],
+      "responses": [
+        "**Word Error Rate (WER)** is the gold-standard accuracy metric for Automatic Speech Recognition, computed via **Levenshtein Edit Distance** at the word level:\n\n`WER = (Substitutions + Deletions + Insertions) / Reference_Words × 100%`\n\n- **Substitutions ($S$)**: Misrecognized word (`\"speech\"` → `\"beach\"`)\n- **Deletions ($D$)**: Omitted reference word\n- **Insertions ($I$)**: Extra hallucinated word (note: because of insertions, WER can exceed 100%!)\n- **CER (Character Error Rate)**: Computes edit distance over characters—preferred for Mandarin, Japanese, or agglutinative languages.\n\n👉 Open the **WER Evaluator** tab at the top of this app to run live Levenshtein word alignments right now!"
+      ],
+      "follow_ups": [
+        "What ASR datasets are used for benchmarking?",
+        "How does background noise affect ASR?",
+        "How does OpenAI Whisper work?"
+      ]
+    },
+    {
+      "tag": "vad_diarization_noise",
+      "title": "VAD, Speaker Diarization & Noise Robustness",
+      "patterns": [
+        "what is vad",
+        "what is voice activity detection",
+        "how does vad help asr",
+        "silero vad webrtc vad",
+        "what is speaker diarization",
+        "speaker diarization who spoke when",
+        "pyannote audio diarization",
+        "noisy speech recognition",
+        "how does noise affect asr",
+        "background noise suppression asr",
+        "cocktail party problem speech separation",
+        "far field microphone beamforming",
+        "endpointing turn detection voice bot"
+      ],
+      "responses": [
+        "Production voice pipelines surround ASR with **VAD, Diarization, and Noise Robustness**:\n\n- **Voice Activity Detection (VAD)**: Classifies 10–30 ms audio chunks into speech vs. non-speech (**Silero VAD**, **WebRTC VAD**). Essential for turn endpointing in voice chatbots and preventing Whisper hallucinations during silence.\n- **Speaker Diarization (\"Who spoke when?\")**: Combines VAD + neural speaker embeddings (**ECAPA-TDNN / pyannote.audio**) + spectral clustering to assign speaker labels (`Speaker A`, `Speaker B`) to ASR timestamps.\n- **Noise Robustness**: Achieved via **SpecAugment** (masking time/frequency bands during training), multi-condition room simulator data (RIRs + MUSAN noise), and microphone array beamforming."
+      ],
+      "follow_ups": [
+        "What datasets and Python tools train ASR?",
+        "How do real-time voice chatbots work in JavaScript?",
+        "How do you calculate Word Error Rate?"
+      ]
+    },
+    {
+      "tag": "datasets_training_python",
+      "title": "ASR Datasets & Python Training Pipeline",
+      "patterns": [
+        "asr datasets",
+        "what datasets are used to train asr",
+        "what public asr datasets exist",
+        "librispeech common voice gigaspeech",
+        "how to train an asr model in python",
+        "how do you fine tune an asr model in python",
+        "python libraries for speech recognition",
+        "speechbrain espnet nemo huggingface",
+        "what is specaugment in asr training",
+        "specaugment time frequency masking",
+        "torchaudio librosa jiwer",
+        "how was this chatbot trained in python",
+        "python training part of this chatbot"
+      ],
+      "responses": [
+        "**ASR Datasets & Python Training Ecosystem**:\n\n- **Standard Datasets**: **LibriSpeech** (960h English audiobooks), **Mozilla Common Voice** (100+ languages), **GigaSpeech** (10,000h multi-domain), **VoxPopuli**, and **FLEURS**.\n- **Python Frameworks**: Hugging Face `transformers`, **SpeechBrain**, **ESPnet**, **NVIDIA NeMo**, `torchaudio`, and `librosa`.\n- **SpecAugment**: Masks random mel-frequency channels and time steps directly on spectrograms during Python training to boost generalization.\n- **How This Chatbot Was Trained**: Run `npm run train` (`python3 training/train_chatbot.py`)! Python extracts Sublinear TF-IDF Word (1–2) + Character (3–4) n-grams and fits an L2-regularized Multi-Class Softmax classifier, exporting weights to `src/model/chatbot_model.json` for fast JavaScript edge inference."
+      ],
+      "follow_ups": [
+        "How does the Web Speech API work in JavaScript?",
+        "How does OpenAI Whisper work?",
+        "Explain Word Error Rate (WER)"
+      ]
+    },
+    {
+      "tag": "web_speech_realtime_agents",
+      "title": "Web Speech API & Real-Time JS Voice Bots",
+      "patterns": [
+        "web speech api",
+        "how does web speech api work in browsers",
+        "how does web speech api work in javascript",
+        "speechrecognition browser javascript",
+        "speechsynthesis text to speech",
+        "how to build a voice chatbot in javascript",
+        "how do real time voice chatbots reduce latency",
+        "how do voice agents achieve sub 500ms latency",
+        "voice chatbot architecture stt llm tts",
+        "how does microphone input work in this app",
+        "barge in voice assistant"
+      ],
+      "responses": [
+        "**Real-Time JavaScript Voice Chatbots** run a tight **3-stage loop (`ASR → NLP → TTS`)**:\n\n1. **Live Browser ASR (`SpeechRecognition` + Web Audio API)**: Streams microphone audio with `interimResults = true` to show partial transcripts in real time, while `AudioContext + AnalyserNode` renders live frequency bars.\n2. **Low-Latency NLP Inference**: Our JavaScript backend (`src/inference.js`) executes matrix-vector Softmax inference over the Python-trained weights in **<1 ms**, logging transcripts and confidence scores to SQLite/D1.\n3. **Voice Output (`speechSynthesis`)**: Speaks bot answers aloud with toggleable auto-voice and instant barge-in interruption whenever you start speaking again!"
+      ],
+      "follow_ups": [
+        "What is Voice Activity Detection (VAD)?",
+        "How was this chatbot trained in Python?",
+        "What is Automatic Speech Recognition?"
+      ]
+    },
+    {
+      "tag": "thanks_goodbye",
+      "title": "Thanks & Sign-off",
+      "patterns": [
+        "thank you",
+        "thanks",
+        "thanks a lot",
+        "thank you very much",
+        "that was helpful",
+        "awesome thanks",
+        "goodbye",
+        "bye",
+        "see you later",
+        "great explanation thanks",
+        "appreciate your help"
+      ],
+      "responses": [
+        "You're very welcome! Feel free to test live voice dictation with the **Mic** button or benchmark transcripts in the **WER Evaluator** tab anytime.",
+        "Glad that helped! Whenever you want to test more Speech-to-Text queries or inspect the Python-trained Softmax weights, I'm right here."
+      ],
+      "follow_ups": [
+        "What is Automatic Speech Recognition?",
+        "How does OpenAI Whisper work?",
+        "How do you calculate Word Error Rate?"
+      ]
+    }
+  ]
+}
