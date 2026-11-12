@@ -1,13 +1,6 @@
 # Render Blueprint Specification (https://render.com/docs/blueprint-spec)
 # yaml-language-server: $schema=https://render.com/schema/render.yaml.json
 
-databases:
-  - name: voxasr-db
-    databaseName: voxasr
-    user: voxasr
-    plan: free
-    region: oregon
-
 services:
   - type: web
     name: voxasr-chatbot
@@ -25,7 +18,7 @@ services:
         value: "180"
       - key: CORS_ORIGIN
         value: "*"
-      - key: DATABASE_URL
-        fromDatabase:
-          name: voxasr-db
-          property: connectionString
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: voxasr

@@ -23,6 +23,7 @@ import {
   getSessionWithMessages,
   listSessions,
   listWerHistory,
+  pingDatabase,
   recordChatTurn,
   recordWerEvaluation,
   renameSession,
@@ -107,20 +108,24 @@ app.use('/api/*', async (c, next) => {
 app.use('/static/*', serveStatic({ root: './public' }))
 
 // Render Health Check Endpoints
-app.get('/health', (c) => {
+app.get('/health', async (c) => {
   const kbStats = getKnowledgeIndex().stats()
   const model = getModelSummary()
-  return c.json({
-    ok: true,
-    status: 'healthy',
-    service: 'voxasr-chatbot',
-    version: model.version || '3.0.0',
-    uptimeSeconds: Math.round((Date.now() - STARTED_AT) / 1000),
-    database: getDbBackend(),
-    kbArticles: kbStats.articles,
-    kbLearned: kbStats.learned,
-    vocabSize: model.vocab_size
-  })
+  const dbOk = await pingDatabase()
+  return c.json(
+    {
+      ok: dbOk,
+      status: dbOk ? 'healthy' : 'degraded',
+      service: 'voxasr-chatbot',
+      version: model.version || '3.0.0',
+      uptimeSeconds: Math.round((Date.now() - STARTED_AT) / 1000),
+      database: getDbBackend(),
+      kbArticles: kbStats.articles,
+      kbLearned: kbStats.learned,
+      vocabSize: model.vocab_size
+    },
+    dbOk ? 200 : 503
+  )
 })
 
 app.get('/api/health', (c) => c.redirect('/health'))

@@ -1,19 +1,19 @@
 # VoxASR — Commercial Multilingual Voice ASR & CS/Math AI Assistant
 
 ## Project Overview
-**VoxASR** (`webapp`) is a commercial-grade Voice & Text AI Chatbot built for **Computer Science**, **Mathematical Computing**, and **Automatic Speech Recognition (ASR)** across **35 certified international languages**, engineered for **Render** deployment (`Node.js` + `Hono` + `PostgreSQL` / `SQLite`).
+**VoxASR** (`webapp`) is a commercial-grade Voice & Text AI Chatbot built for **Computer Science**, **Mathematical Computing**, and **Automatic Speech Recognition (ASR)** across **35 certified international languages**, engineered for **Render** deployment (`Node.js` + `Hono` + **MongoDB NoSQL**).
 
 ### Core Architecture & Features
 - **Hybrid AI Inference (`src/inference.js` + `src/knowledge.js`)**:
   - **Sub-millisecond Softmax Neural Classifier**: Sublinear TF-IDF (Word 1-2g + Char 3-4g + CJK) weights trained in Python (`training/train_chatbot.py`) and exported as portable JSON (`src/model/chatbot_model.json`).
   - **Okapi BM25 Extractive Knowledge Pool**: Indexes sharded Wikipedia & ArXiv articles (`public/static/kb/`) with question analysis, WH-type hints, synonym matching, and side-by-side comparisons (`Compare A and B`).
-  - **Self-Learning Live Web Scraper (`src/web_learner.js`)**: Automatically fetches unknown topics from Wikipedia MediaWiki API & ArXiv Atom API on demand, indexes them live into memory, and persists them to PostgreSQL / SQLite across restarts.
+  - **Self-Learning Live Web Scraper (`src/web_learner.js`)**: Automatically fetches unknown topics from Wikipedia MediaWiki API & ArXiv Atom API on demand, indexes them live into memory, and persists them to MongoDB across restarts.
   - **Injection-Safe Mathematical Evaluator**: Evaluates arithmetic, powers, trig, and logarithmic expressions directly without `eval()`.
   - **Multi-Turn Context Resolution**: Resolves follow-up pronoun queries using the session's active topic.
 - **35 Certified World Languages (`src/languages.json`)**:
   - Full Web Speech API (STT) & SpeechSynthesis (TTS) support across European, Asian, Indic, Middle Eastern, and African locales, with automatic RTL layout for Arabic, Persian, Urdu, and Hebrew.
-- **Commercial Persistence & Security (`src/db.js`, `src/index.js`)**:
-  - **Render Managed PostgreSQL (`DATABASE_URL`)** in production with automatic **SQLite (`node:sqlite`)** fallback for zero-config local development.
+- **Commercial NoSQL Persistence & Security (`src/db.js`, `src/index.js`)**:
+  - **MongoDB (`MONGODB_URI` / `MONGODB_DB`)** persistence for sessions, multilingual messages, feedback, WER evaluations, and learned articles (`counters`, `chat_sessions`, `chat_messages`, `wer_evaluations`, `learned_articles`).
   - Full session history (create, search, rename, delete, Markdown/JSON export), per-message thumbs-up/down feedback, WER/CER benchmarking history, live usage analytics (`/api/analytics`), security headers, sliding-window rate limiting, and `/health` readiness checks.
 
 ## API Endpoints
@@ -63,8 +63,7 @@ npm run train
    render blueprints validate render.yaml
    ```
 3. In the Render Dashboard, click **New + -> Blueprint** and select your repository (or open `https://dashboard.render.com/blueprint/new?repo=<YOUR_HTTPS_REPO_URL>`).
-4. Review the `voxasr-chatbot` web service and `voxasr-db` PostgreSQL database, then click **Apply**.
-   - Note: `render.yaml` uses `plan: free` for quick evaluation (Render free Postgres expires after 30 days; switch `plan` to `0.1c-256mb` for persistent production storage and `0.5c-512mb` for always-on web compute).
+4. Review the `voxasr-chatbot` web service, provide your `MONGODB_URI` connection string (pointed at a dedicated database such as `/voxasr`), and click **Apply**.
 
 ### Method 2: Docker on Render (Node.js + Python ML)
 If you want to run Python `scikit-learn` retraining (`training/train_chatbot.py`) inside the container as well, switch `runtime: docker` in `render.yaml` using the included `Dockerfile` and `.dockerignore`.

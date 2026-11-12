@@ -3,7 +3,7 @@
  * ----------------------------------------------------------------------------------
  * - Loads sharded KB (`public/static/kb/manifest.json` + `kb-*.json`) into `KnowledgeIndex`
  * - Also ingests `training/dynamic_knowledge_pool.json` & `training/learned_knowledge.json`
- * - Hydrates previously learned articles from PostgreSQL / SQLite on startup
+ * - Hydrates previously learned articles from MongoDB on startup
  * - Scrapes Wikipedia MediaWiki API & ArXiv Atom API on-demand or during auto-upgrade
  * - Hot-reloads `chatbot_model.json` & KB shards automatically when `manifest.json` updates
  */
@@ -128,7 +128,7 @@ export async function initKnowledgeEngine(reloadModelFn) {
     }
   }
 
-  // Load learned articles persisted in PostgreSQL / SQLite
+  // Load learned articles persisted in MongoDB
   try {
     const dbDocs = await loadLearnedArticlesFromDb()
     for (const doc of dbDocs) {

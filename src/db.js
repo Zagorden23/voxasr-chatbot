@@ -1,566 +1,306 @@
 /**
- * Commercial Database Layer for VoxASR
- * ------------------------------------
- * Automatically selects:
- *   1. PostgreSQL (`pg`) when `DATABASE_URL` is configured (Render Managed PostgreSQL)
- *   2. Node built-in SQLite (`node:sqlite`) for zero-config local/single-instance persistence
- *   3. Atomic JSON file store fallback if neither is available
+ * Commercial NoSQL Database Layer for VoxASR (MongoDB Only)
+ * --------------------------------------------------------
+ * Connects exclusively to MongoDB via the official `mongodb` Node.js driver.
+ * Reads `VOXASR_MONGODB_URI` (local `.env` override) or `MONGODB_URI` (Render/Cloud),
+ * plus optional `MONGODB_DB` (defaults to the URI database path or `voxasr`).
+ *
+ * Collections:
+ *   - `counters`          Atomic sequence generator for numeric message/WER IDs
+ *   - `chat_sessions`     Session metadata (title, language, timestamps)
+ *   - `chat_messages`     Multilingual user & bot turns, ASR confidence, latency, feedback
+ *   - `wer_evaluations`   ASR Word Error Rate & CER benchmark history
+ *   - `learned_articles`  Dynamically harvested Wikipedia & ArXiv articles
  */
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { MongoClient } from 'mongodb'
 
-let pgPool = null
-let sqliteDb = null
-let backendType = 'memory'
-let jsonStorePath = null
-let jsonStore = { sessions: [], messages: [], wer: [], learned: [] }
+let mongoClient = null
+let mongoDb = null
+let backendType = 'disconnected'
 
-function isRenderInternalPostgres(url) {
-  return /^postgres(?:ql)?:\/\/[^/]*@dpg-[^./]+(?::\d+)?\//i.test(url)
-}
-
-function resolveDataDir() {
-  const configured = process.env.DATA_DIR
-  if (configured) return path.resolve(configured)
-  return path.resolve(process.cwd(), 'data')
-}
-
-function flushJsonStore() {
-  if (!jsonStorePath) return
+function loadDotEnvIfPresent() {
+  const envPath = path.resolve(process.cwd(), '.env')
+  if (!fs.existsSync(envPath)) return
   try {
-    fs.mkdirSync(path.dirname(jsonStorePath), { recursive: true })
-    const tmp = `${jsonStorePath}.tmp`
-    fs.writeFileSync(tmp, JSON.stringify(jsonStore), 'utf8')
-    fs.renameSync(tmp, jsonStorePath)
-  } catch (err) {
-    console.warn('[DB] JSON store flush failed:', err.message)
-  }
-}
-
-export async function initDatabase() {
-  const dbUrl = (process.env.DATABASE_URL || '').trim()
-
-  if (dbUrl) {
-    try {
-      const { Pool } = await import('pg')
-      const useSsl =
-        process.env.PGSSLMODE === 'require' ||
-        (!isRenderInternalPostgres(dbUrl) && !/localhost|127\.0\.0\.1/i.test(dbUrl))
-
-      pgPool = new Pool({
-        connectionString: dbUrl,
-        max: Number(process.env.PG_POOL_MAX || 10),
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 8000,
-        ssl: useSsl ? { rejectUnauthorized: false } : false
-      })
-
-      await pgPool.query(`
-        CREATE TABLE IF NOT EXISTS chat_sessions (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL DEFAULT 'Voice ASR Session',
-          language TEXT DEFAULT 'en-US',
-          created_at TIMESTAMPTZ DEFAULT NOW(),
-          updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-      `)
-      await pgPool.query(`
-        CREATE TABLE IF NOT EXISTS chat_messages (
-          id SERIAL PRIMARY KEY,
-          session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
-          role TEXT NOT NULL,
-          content TEXT NOT NULL,
-          input_mode TEXT DEFAULT 'text',
-          asr_confidence DOUBLE PRECISION,
-          intent_tag TEXT,
-          intent_confidence DOUBLE PRECISION,
-          detected_language TEXT,
-          source_title TEXT,
-          source_url TEXT,
-          latency_ms DOUBLE PRECISION,
-          feedback TEXT,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-        );
-      `)
-      await pgPool.query(`
-        CREATE INDEX IF NOT EXISTS idx_messages_session ON chat_messages(session_id);
-      `)
-      await pgPool.query(`
-        CREATE TABLE IF NOT EXISTS wer_evaluations (
-          id SERIAL PRIMARY KEY,
-          reference_text TEXT NOT NULL,
-          hypothesis_text TEXT NOT NULL,
-          wer DOUBLE PRECISION NOT NULL,
-          cer DOUBLE PRECISION NOT NULL,
-          word_accuracy DOUBLE PRECISION NOT NULL DEFAULT 0,
-          substitutions INTEGER NOT NULL DEFAULT 0,
-          deletions INTEGER NOT NULL DEFAULT 0,
-          insertions INTEGER NOT NULL DEFAULT 0,
-          language TEXT DEFAULT 'en-US',
-          created_at TIMESTAMPTZ DEFAULT NOW()
-        );
-      `)
-      await pgPool.query(`
-        CREATE TABLE IF NOT EXISTS learned_articles (
-          id SERIAL PRIMARY KEY,
-          title TEXT NOT NULL,
-          lang TEXT NOT NULL DEFAULT 'en',
-          domain TEXT,
-          text TEXT NOT NULL,
-          aliases_json TEXT DEFAULT '[]',
-          source TEXT DEFAULT 'Wikipedia',
-          url TEXT DEFAULT '',
-          created_at TIMESTAMPTZ DEFAULT NOW(),
-          updated_at TIMESTAMPTZ DEFAULT NOW(),
-          UNIQUE (title, lang)
-        );
-      `)
-
-      backendType = 'postgres'
-      console.log('[DB] Connected to PostgreSQL')
-      return backendType
-    } catch (err) {
-      console.error('[DB] PostgreSQL initialization failed, falling back to local store:', err.message)
-      if (pgPool) {
-        await pgPool.end().catch(() => {})
-        pgPool = null
+    const raw = fs.readFileSync(envPath, 'utf8')
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const eq = trimmed.indexOf('=')
+      if (eq <= 0) continue
+      const key = trimmed.slice(0, eq).trim()
+      let val = trimmed.slice(eq + 1).trim()
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1)
+      }
+      if (!process.env[key]) {
+        process.env[key] = val
       }
     }
+  } catch (err) {
+    console.warn('[DB] Failed reading local .env:', err.message)
+  }
+}
+
+function resolveDbName(uri, explicitDbName) {
+  if (explicitDbName && String(explicitDbName).trim()) {
+    return String(explicitDbName).trim()
+  }
+  const envDb = (process.env.MONGODB_DB || '').trim()
+  if (envDb) return envDb
+  try {
+    const parsed = new URL(uri)
+    const cleanPath = parsed.pathname.replace(/^\/+/, '').trim()
+    if (cleanPath) return cleanPath
+  } catch (_) {}
+  return 'voxasr'
+}
+
+function collections() {
+  if (!mongoDb) {
+    throw new Error('MongoDB is not initialized. Call initDatabase() first.')
+  }
+  return {
+    counters: mongoDb.collection('counters'),
+    sessions: mongoDb.collection('chat_sessions'),
+    messages: mongoDb.collection('chat_messages'),
+    wer: mongoDb.collection('wer_evaluations'),
+    learned: mongoDb.collection('learned_articles')
+  }
+}
+
+async function ensureIndexes() {
+  const { sessions, messages, wer, learned } = collections()
+  await Promise.all([
+    sessions.createIndex({ id: 1 }, { unique: true }),
+    sessions.createIndex({ updated_at: -1 }),
+    messages.createIndex({ id: 1 }, { unique: true }),
+    messages.createIndex({ session_id: 1, id: 1 }),
+    messages.createIndex({ role: 1, intent_tag: 1 }),
+    messages.createIndex({ role: 1, detected_language: 1 }),
+    wer.createIndex({ id: -1 }),
+    learned.createIndex({ title: 1, lang: 1 }, { unique: true })
+  ])
+}
+
+async function nextSequence(counterName, increment = 1) {
+  const { counters } = collections()
+  const doc = await counters.findOneAndUpdate(
+    { _id: counterName },
+    { $inc: { seq: increment } },
+    { upsert: true, returnDocument: 'after' }
+  )
+  const seq = Number(doc?.seq ?? doc?.value?.seq ?? increment)
+  return seq - increment + 1
+}
+
+export async function initDatabase(options = {}) {
+  loadDotEnvIfPresent()
+
+  if (options.db) {
+    mongoDb = options.db
+    mongoClient = options.client || null
+    backendType = 'mongodb'
+    await ensureIndexes()
+    return backendType
   }
 
-  // Try built-in node:sqlite (Node >= 22.5)
+  const uri = String(options.uri || process.env.VOXASR_MONGODB_URI || process.env.MONGODB_URI || '').trim()
+  if (!uri) {
+    throw new Error('MongoDB connection URI missing: set MONGODB_URI (or VOXASR_MONGODB_URI for local dev).')
+  }
+
+  const dbName = resolveDbName(uri, options.dbName)
+  const client = new MongoClient(uri, {
+    maxPoolSize: Number(process.env.MONGO_POOL_MAX || 20),
+    minPoolSize: 1,
+    serverSelectionTimeoutMS: Number(process.env.MONGO_TIMEOUT_MS || 10000),
+    retryWrites: true
+  })
+
   try {
-    const { DatabaseSync } = await import('node:sqlite')
-    const dataDir = resolveDataDir()
-    fs.mkdirSync(dataDir, { recursive: true })
-    const dbPath = path.join(dataDir, 'voxasr.sqlite')
-    sqliteDb = new DatabaseSync(dbPath)
-    sqliteDb.exec('PRAGMA journal_mode = WAL;')
-    sqliteDb.exec('PRAGMA foreign_keys = ON;')
-    sqliteDb.exec(`
-      CREATE TABLE IF NOT EXISTS chat_sessions (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL DEFAULT 'Voice ASR Session',
-        language TEXT DEFAULT 'en-US',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS chat_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        input_mode TEXT DEFAULT 'text',
-        asr_confidence REAL,
-        intent_tag TEXT,
-        intent_confidence REAL,
-        detected_language TEXT,
-        source_title TEXT,
-        source_url TEXT,
-        latency_ms REAL,
-        feedback TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
-      );
-      CREATE INDEX IF NOT EXISTS idx_messages_session ON chat_messages(session_id);
-      CREATE TABLE IF NOT EXISTS wer_evaluations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        reference_text TEXT NOT NULL,
-        hypothesis_text TEXT NOT NULL,
-        wer REAL NOT NULL,
-        cer REAL NOT NULL,
-        word_accuracy REAL NOT NULL DEFAULT 0,
-        substitutions INTEGER NOT NULL DEFAULT 0,
-        deletions INTEGER NOT NULL DEFAULT 0,
-        insertions INTEGER NOT NULL DEFAULT 0,
-        language TEXT DEFAULT 'en-US',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS learned_articles (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        lang TEXT NOT NULL DEFAULT 'en',
-        domain TEXT,
-        text TEXT NOT NULL,
-        aliases_json TEXT DEFAULT '[]',
-        source TEXT DEFAULT 'Wikipedia',
-        url TEXT DEFAULT '',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (title, lang)
-      );
-    `)
-    backendType = 'sqlite'
-    console.log(`[DB] Connected to local SQLite (${dbPath})`)
+    await client.connect()
+    const db = client.db(dbName)
+    await db.command({ ping: 1 })
+    mongoClient = client
+    mongoDb = db
+    backendType = 'mongodb'
+    await ensureIndexes()
+    console.log(`[DB] Connected to MongoDB database "${dbName}"`)
     return backendType
   } catch (err) {
-    console.warn('[DB] node:sqlite unavailable, using JSON file store:', err.message)
+    await client.close().catch(() => {})
+    mongoClient = null
+    mongoDb = null
+    backendType = 'disconnected'
+    throw err
   }
-
-  // Fallback atomic JSON store
-  const dataDir = resolveDataDir()
-  jsonStorePath = path.join(dataDir, 'voxasr_db.json')
-  if (fs.existsSync(jsonStorePath)) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(jsonStorePath, 'utf8'))
-      jsonStore = {
-        sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
-        messages: Array.isArray(parsed.messages) ? parsed.messages : [],
-        wer: Array.isArray(parsed.wer) ? parsed.wer : [],
-        learned: Array.isArray(parsed.learned) ? parsed.learned : []
-      }
-    } catch (_) {}
-  }
-  backendType = 'json'
-  console.log(`[DB] Using JSON file store (${jsonStorePath})`)
-  return backendType
 }
 
 export function getDbBackend() {
   return backendType
 }
 
+export async function pingDatabase() {
+  if (!mongoDb) return false
+  try {
+    const res = await mongoDb.command({ ping: 1 })
+    return res?.ok === 1
+  } catch (_) {
+    return false
+  }
+}
+
 export async function closeDatabase() {
-  if (pgPool) {
-    await pgPool.end().catch(() => {})
-    pgPool = null
+  if (mongoClient && typeof mongoClient.close === 'function') {
+    await mongoClient.close().catch(() => {})
   }
-  if (sqliteDb && typeof sqliteDb.close === 'function') {
-    try {
-      sqliteDb.close()
-    } catch (_) {}
-    sqliteDb = null
-  }
+  mongoClient = null
+  mongoDb = null
+  backendType = 'disconnected'
 }
 
 export async function listSessions(limit = 30) {
-  if (backendType === 'postgres') {
-    const { rows } = await pgPool.query(
-      `SELECT s.id, s.title, s.language, s.created_at, s.updated_at,
-              COUNT(m.id)::int AS message_count
-       FROM chat_sessions s
-       LEFT JOIN chat_messages m ON m.session_id = s.id
-       GROUP BY s.id
-       ORDER BY s.updated_at DESC
-       LIMIT $1`,
-      [limit]
-    )
-    return rows
-  }
-  if (backendType === 'sqlite') {
-    return sqliteDb
-      .prepare(
-        `SELECT s.id, s.title, s.language, s.created_at, s.updated_at,
-                COUNT(m.id) AS message_count
-         FROM chat_sessions s
-         LEFT JOIN chat_messages m ON m.session_id = s.id
-         GROUP BY s.id
-         ORDER BY s.updated_at DESC
-         LIMIT ?`
-      )
-      .all(limit)
-  }
-  return jsonStore.sessions
-    .map((s) => ({
-      ...s,
-      message_count: jsonStore.messages.filter((m) => m.session_id === s.id).length
-    }))
-    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-    .slice(0, limit)
+  const { sessions } = collections()
+  return sessions
+    .aggregate([
+      { $sort: { updated_at: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'chat_messages',
+          localField: 'id',
+          foreignField: 'session_id',
+          as: '_msgs'
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          id: 1,
+          title: 1,
+          language: 1,
+          created_at: 1,
+          updated_at: 1,
+          message_count: { $size: '$_msgs' }
+        }
+      }
+    ])
+    .toArray()
 }
 
 export async function getSessionWithMessages(sessionId) {
-  if (backendType === 'postgres') {
-    const { rows: sRows } = await pgPool.query(`SELECT * FROM chat_sessions WHERE id = $1`, [sessionId])
-    const { rows: mRows } = await pgPool.query(
-      `SELECT * FROM chat_messages WHERE session_id = $1 ORDER BY id ASC`,
-      [sessionId]
-    )
-    return {
-      session: sRows[0] || { id: sessionId, title: 'Voice ASR Session', language: 'en-US' },
-      messages: mRows
-    }
-  }
-  if (backendType === 'sqlite') {
-    const session = sqliteDb.prepare(`SELECT * FROM chat_sessions WHERE id = ?`).get(sessionId)
-    const messages = sqliteDb
-      .prepare(`SELECT * FROM chat_messages WHERE session_id = ? ORDER BY id ASC`)
-      .all(sessionId)
-    return {
-      session: session || { id: sessionId, title: 'Voice ASR Session', language: 'en-US' },
-      messages
-    }
-  }
-  const session = jsonStore.sessions.find((s) => s.id === sessionId)
-  const messages = jsonStore.messages.filter((m) => m.session_id === sessionId)
+  const { sessions, messages } = collections()
+  const [session, msgList] = await Promise.all([
+    sessions.findOne({ id: sessionId }, { projection: { _id: 0 } }),
+    messages.find({ session_id: sessionId }, { projection: { _id: 0 } }).sort({ id: 1 }).toArray()
+  ])
   return {
     session: session || { id: sessionId, title: 'Voice ASR Session', language: 'en-US' },
-    messages
+    messages: msgList
   }
 }
 
 export async function renameSession(sessionId, title) {
   const cleanTitle = String(title || '').trim().slice(0, 120)
   if (!cleanTitle) return false
-  if (backendType === 'postgres') {
-    const res = await pgPool.query(
-      `UPDATE chat_sessions SET title = $1, updated_at = NOW() WHERE id = $2`,
-      [cleanTitle, sessionId]
-    )
-    return res.rowCount > 0
-  }
-  if (backendType === 'sqlite') {
-    const res = sqliteDb
-      .prepare(`UPDATE chat_sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-      .run(cleanTitle, sessionId)
-    return res.changes > 0
-  }
-  const s = jsonStore.sessions.find((x) => x.id === sessionId)
-  if (!s) return false
-  s.title = cleanTitle
-  s.updated_at = new Date().toISOString()
-  flushJsonStore()
-  return true
+  const { sessions } = collections()
+  const res = await sessions.updateOne(
+    { id: sessionId },
+    { $set: { title: cleanTitle, updated_at: new Date() } }
+  )
+  return res.matchedCount > 0
 }
 
 export async function deleteSession(sessionId) {
-  if (backendType === 'postgres') {
-    await pgPool.query(`DELETE FROM chat_sessions WHERE id = $1`, [sessionId])
-    return true
-  }
-  if (backendType === 'sqlite') {
-    sqliteDb.prepare(`DELETE FROM chat_messages WHERE session_id = ?`).run(sessionId)
-    sqliteDb.prepare(`DELETE FROM chat_sessions WHERE id = ?`).run(sessionId)
-    return true
-  }
-  jsonStore.messages = jsonStore.messages.filter((m) => m.session_id !== sessionId)
-  jsonStore.sessions = jsonStore.sessions.filter((s) => s.id !== sessionId)
-  flushJsonStore()
+  const { sessions, messages } = collections()
+  await Promise.all([
+    messages.deleteMany({ session_id: sessionId }),
+    sessions.deleteOne({ id: sessionId })
+  ])
   return true
 }
 
-export async function recordChatTurn({
-  sessionId,
-  sessionTitle,
-  language,
-  userMessage,
-  botMessage
-}) {
-  if (backendType === 'postgres') {
-    const client = await pgPool.connect()
-    try {
-      await client.query('BEGIN')
-      await client.query(
-        `INSERT INTO chat_sessions (id, title, language)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (id) DO UPDATE SET updated_at = NOW(), language = EXCLUDED.language`,
-        [sessionId, sessionTitle, language]
-      )
-      await client.query(
-        `INSERT INTO chat_messages (session_id, role, content, input_mode, asr_confidence, intent_tag, intent_confidence, detected_language)
-         VALUES ($1, 'user', $2, $3, $4, $5, $6, $7)`,
-        [
-          sessionId,
-          userMessage.content,
-          userMessage.inputMode,
-          userMessage.asrConfidence,
-          botMessage.intentTag,
-          botMessage.confidence,
-          language
-        ]
-      )
-      const botRes = await client.query(
-        `INSERT INTO chat_messages (session_id, role, content, input_mode, asr_confidence, intent_tag, intent_confidence, detected_language, source_title, source_url, latency_ms)
-         VALUES ($1, 'bot', $2, 'system', NULL, $3, $4, $5, $6, $7, $8)
-         RETURNING id`,
-        [
-          sessionId,
-          botMessage.reply,
-          botMessage.intentTag,
-          botMessage.confidence,
-          language,
-          botMessage.sourceTitle || null,
-          botMessage.sourceUrl || null,
-          botMessage.latencyMs || null
-        ]
-      )
-      await client.query('COMMIT')
-      return botRes.rows[0]?.id || null
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {})
-      throw err
-    } finally {
-      client.release()
-    }
-  }
+export async function recordChatTurn({ sessionId, sessionTitle, language, userMessage, botMessage }) {
+  const { sessions, messages } = collections()
+  const now = new Date()
 
-  if (backendType === 'sqlite') {
-    const existing = sqliteDb.prepare(`SELECT id FROM chat_sessions WHERE id = ?`).get(sessionId)
-    if (!existing) {
-      sqliteDb
-        .prepare(`INSERT INTO chat_sessions (id, title, language) VALUES (?, ?, ?)`)
-        .run(sessionId, sessionTitle, language)
-    } else {
-      sqliteDb
-        .prepare(`UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP, language = ? WHERE id = ?`)
-        .run(language, sessionId)
-    }
-    sqliteDb
-      .prepare(
-        `INSERT INTO chat_messages (session_id, role, content, input_mode, asr_confidence, intent_tag, intent_confidence, detected_language)
-         VALUES (?, 'user', ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        sessionId,
-        userMessage.content,
-        userMessage.inputMode,
-        userMessage.asrConfidence,
-        botMessage.intentTag,
-        botMessage.confidence,
-        language
-      )
-    const botRes = sqliteDb
-      .prepare(
-        `INSERT INTO chat_messages (session_id, role, content, input_mode, asr_confidence, intent_tag, intent_confidence, detected_language, source_title, source_url, latency_ms)
-         VALUES (?, 'bot', ?, 'system', NULL, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        sessionId,
-        botMessage.reply,
-        botMessage.intentTag,
-        botMessage.confidence,
-        language,
-        botMessage.sourceTitle || null,
-        botMessage.sourceUrl || null,
-        botMessage.latencyMs || null
-      )
-    return Number(botRes.lastInsertRowid)
-  }
+  await sessions.updateOne(
+    { id: sessionId },
+    {
+      $set: { language, updated_at: now },
+      $setOnInsert: { id: sessionId, title: sessionTitle, created_at: now }
+    },
+    { upsert: true }
+  )
 
-  const now = new Date().toISOString()
-  let sess = jsonStore.sessions.find((s) => s.id === sessionId)
-  if (!sess) {
-    sess = { id: sessionId, title: sessionTitle, language, created_at: now, updated_at: now }
-    jsonStore.sessions.push(sess)
-  } else {
-    sess.updated_at = now
-    sess.language = language
-  }
-  const nextId = (jsonStore.messages[jsonStore.messages.length - 1]?.id || 0) + 1
-  jsonStore.messages.push({
-    id: nextId,
-    session_id: sessionId,
-    role: 'user',
-    content: userMessage.content,
-    input_mode: userMessage.inputMode,
-    asr_confidence: userMessage.asrConfidence,
-    intent_tag: botMessage.intentTag,
-    intent_confidence: botMessage.confidence,
-    detected_language: language,
-    created_at: now
-  })
-  const botId = nextId + 1
-  jsonStore.messages.push({
-    id: botId,
-    session_id: sessionId,
-    role: 'bot',
-    content: botMessage.reply,
-    input_mode: 'system',
-    asr_confidence: null,
-    intent_tag: botMessage.intentTag,
-    intent_confidence: botMessage.confidence,
-    detected_language: language,
-    source_title: botMessage.sourceTitle || null,
-    source_url: botMessage.sourceUrl || null,
-    latency_ms: botMessage.latencyMs || null,
-    feedback: null,
-    created_at: now
-  })
-  flushJsonStore()
+  const startId = await nextSequence('chat_messages', 2)
+  const userId = startId
+  const botId = startId + 1
+
+  await messages.insertMany([
+    {
+      id: userId,
+      session_id: sessionId,
+      role: 'user',
+      content: userMessage.content,
+      input_mode: userMessage.inputMode,
+      asr_confidence: userMessage.asrConfidence ?? null,
+      intent_tag: botMessage.intentTag,
+      intent_confidence: botMessage.confidence,
+      detected_language: language,
+      created_at: now
+    },
+    {
+      id: botId,
+      session_id: sessionId,
+      role: 'bot',
+      content: botMessage.reply,
+      input_mode: 'system',
+      asr_confidence: null,
+      intent_tag: botMessage.intentTag,
+      intent_confidence: botMessage.confidence,
+      detected_language: language,
+      source_title: botMessage.sourceTitle || null,
+      source_url: botMessage.sourceUrl || null,
+      latency_ms: botMessage.latencyMs || null,
+      feedback: null,
+      created_at: now
+    }
+  ])
+
   return botId
 }
 
 export async function getLastBotContextTopic(sessionId) {
   if (!sessionId) return null
-  if (backendType === 'postgres') {
-    const { rows } = await pgPool.query(
-      `SELECT source_title FROM chat_messages WHERE session_id = $1 AND role = 'bot' AND source_title IS NOT NULL ORDER BY id DESC LIMIT 1`,
-      [sessionId]
-    )
-    return rows[0]?.source_title || null
-  }
-  if (backendType === 'sqlite') {
-    const row = sqliteDb
-      .prepare(
-        `SELECT source_title FROM chat_messages WHERE session_id = ? AND role = 'bot' AND source_title IS NOT NULL ORDER BY id DESC LIMIT 1`
-      )
-      .get(sessionId)
-    return row?.source_title || null
-  }
-  const msgs = jsonStore.messages.filter((m) => m.session_id === sessionId && m.role === 'bot' && m.source_title)
-  return msgs.length ? msgs[msgs.length - 1].source_title : null
+  const { messages } = collections()
+  const row = await messages.findOne(
+    { session_id: sessionId, role: 'bot', source_title: { $type: 'string' } },
+    { sort: { id: -1 }, projection: { _id: 0, source_title: 1 } }
+  )
+  return row?.source_title || null
 }
 
 export async function saveMessageFeedback(messageId, feedback) {
   const valid = feedback === 'up' || feedback === 'down' ? feedback : null
   if (!messageId || !valid) return false
-  if (backendType === 'postgres') {
-    const res = await pgPool.query(`UPDATE chat_messages SET feedback = $1 WHERE id = $2`, [valid, Number(messageId)])
-    return res.rowCount > 0
-  }
-  if (backendType === 'sqlite') {
-    const res = sqliteDb.prepare(`UPDATE chat_messages SET feedback = ? WHERE id = ?`).run(valid, Number(messageId))
-    return res.changes > 0
-  }
-  const msg = jsonStore.messages.find((m) => m.id === Number(messageId))
-  if (!msg) return false
-  msg.feedback = valid
-  flushJsonStore()
-  return true
+  const { messages } = collections()
+  const res = await messages.updateOne(
+    { id: Number(messageId) },
+    { $set: { feedback: valid } }
+  )
+  return res.matchedCount > 0
 }
 
 export async function recordWerEvaluation(referenceText, hypothesisText, metrics, language = 'en-US') {
-  if (backendType === 'postgres') {
-    await pgPool.query(
-      `INSERT INTO wer_evaluations (reference_text, hypothesis_text, wer, cer, word_accuracy, substitutions, deletions, insertions, language)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [
-        referenceText,
-        hypothesisText,
-        metrics.wer,
-        metrics.cer,
-        metrics.wordAccuracy,
-        metrics.substitutions,
-        metrics.deletions,
-        metrics.insertions,
-        language
-      ]
-    )
-    return
-  }
-  if (backendType === 'sqlite') {
-    sqliteDb
-      .prepare(
-        `INSERT INTO wer_evaluations (reference_text, hypothesis_text, wer, cer, word_accuracy, substitutions, deletions, insertions, language)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        referenceText,
-        hypothesisText,
-        metrics.wer,
-        metrics.cer,
-        metrics.wordAccuracy,
-        metrics.substitutions,
-        metrics.deletions,
-        metrics.insertions,
-        language
-      )
-    return
-  }
-  const nextId = (jsonStore.wer[jsonStore.wer.length - 1]?.id || 0) + 1
-  jsonStore.wer.push({
-    id: nextId,
+  const { wer } = collections()
+  const id = await nextSequence('wer_evaluations', 1)
+  await wer.insertOne({
+    id,
     reference_text: referenceText,
     hypothesis_text: hypothesisText,
     wer: metrics.wer,
@@ -570,34 +310,18 @@ export async function recordWerEvaluation(referenceText, hypothesisText, metrics
     deletions: metrics.deletions,
     insertions: metrics.insertions,
     language,
-    created_at: new Date().toISOString()
+    created_at: new Date()
   })
-  jsonStore.wer = jsonStore.wer.slice(-200)
-  flushJsonStore()
 }
 
 export async function listWerHistory(limit = 15) {
-  if (backendType === 'postgres') {
-    const { rows } = await pgPool.query(`SELECT * FROM wer_evaluations ORDER BY id DESC LIMIT $1`, [limit])
-    return rows
-  }
-  if (backendType === 'sqlite') {
-    return sqliteDb.prepare(`SELECT * FROM wer_evaluations ORDER BY id DESC LIMIT ?`).all(limit)
-  }
-  return [...jsonStore.wer].reverse().slice(0, limit)
+  const { wer } = collections()
+  return wer.find({}, { projection: { _id: 0 } }).sort({ id: -1 }).limit(limit).toArray()
 }
 
 export async function clearWerHistory() {
-  if (backendType === 'postgres') {
-    await pgPool.query(`DELETE FROM wer_evaluations`)
-    return
-  }
-  if (backendType === 'sqlite') {
-    sqliteDb.prepare(`DELETE FROM wer_evaluations`).run()
-    return
-  }
-  jsonStore.wer = []
-  flushJsonStore()
+  const { wer } = collections()
+  await wer.deleteMany({})
 }
 
 export async function saveLearnedArticle(doc) {
@@ -605,228 +329,137 @@ export async function saveLearnedArticle(doc) {
   const lang = String(doc.lang || 'en').split('-')[0].toLowerCase().slice(0, 12)
   const text = String(doc.text || '').trim().slice(0, 6000)
   if (!title || text.length < 40) return
-  const aliasesJson = JSON.stringify((doc.aliases || []).slice(0, 12))
+
+  const aliases = Array.isArray(doc.aliases) ? doc.aliases.slice(0, 12) : []
   const source = String(doc.source || 'Wikipedia').slice(0, 60)
   const url = String(doc.url || '').slice(0, 500)
   const domain = doc.domain ? String(doc.domain).slice(0, 80) : null
+  const now = new Date()
 
-  if (backendType === 'postgres') {
-    await pgPool.query(
-      `INSERT INTO learned_articles (title, lang, domain, text, aliases_json, source, url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (title, lang) DO UPDATE SET
-         text = CASE WHEN LENGTH(EXCLUDED.text) > LENGTH(learned_articles.text) THEN EXCLUDED.text ELSE learned_articles.text END,
-         aliases_json = EXCLUDED.aliases_json,
-         updated_at = NOW()`,
-      [title, lang, domain, text, aliasesJson, source, url]
-    )
-    return
-  }
-  if (backendType === 'sqlite') {
-    sqliteDb
-      .prepare(
-        `INSERT INTO learned_articles (title, lang, domain, text, aliases_json, source, url)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT (title, lang) DO UPDATE SET
-           text = CASE WHEN LENGTH(excluded.text) > LENGTH(learned_articles.text) THEN excluded.text ELSE learned_articles.text END,
-           aliases_json = excluded.aliases_json,
-           updated_at = CURRENT_TIMESTAMP`
-      )
-      .run(title, lang, domain, text, aliasesJson, source, url)
-    return
-  }
-  const existing = jsonStore.learned.find((d) => d.title === title && d.lang === lang)
-  if (existing) {
-    if (text.length > existing.text.length) existing.text = text
-    existing.aliases = doc.aliases || existing.aliases
-    existing.updated_at = new Date().toISOString()
-  } else {
-    jsonStore.learned.push({
-      title,
-      lang,
-      domain,
-      text,
-      aliases: doc.aliases || [],
-      source,
-      url,
-      created_at: new Date().toISOString()
-    })
-  }
-  flushJsonStore()
+  const { learned } = collections()
+  const existing = await learned.findOne({ title, lang }, { projection: { _id: 0, text: 1 } })
+  const nextText = existing && existing.text && existing.text.length > text.length ? existing.text : text
+
+  await learned.updateOne(
+    { title, lang },
+    {
+      $set: {
+        domain,
+        text: nextText,
+        aliases,
+        source,
+        url,
+        updated_at: now
+      },
+      $setOnInsert: {
+        title,
+        lang,
+        created_at: now
+      }
+    },
+    { upsert: true }
+  )
 }
 
 export async function loadLearnedArticlesFromDb() {
-  if (backendType === 'postgres') {
-    const { rows } = await pgPool.query(`SELECT * FROM learned_articles ORDER BY id ASC LIMIT 5000`)
-    return rows.map((r) => ({
-      title: r.title,
-      lang: r.lang,
-      domain: r.domain,
-      text: r.text,
-      aliases: safeParseJson(r.aliases_json, []),
-      source: r.source,
-      url: r.url,
-      learned: true
-    }))
-  }
-  if (backendType === 'sqlite') {
-    const rows = sqliteDb.prepare(`SELECT * FROM learned_articles ORDER BY id ASC LIMIT 5000`).all()
-    return rows.map((r) => ({
-      title: r.title,
-      lang: r.lang,
-      domain: r.domain,
-      text: r.text,
-      aliases: safeParseJson(r.aliases_json, []),
-      source: r.source,
-      url: r.url,
-      learned: true
-    }))
-  }
-  return jsonStore.learned.map((r) => ({ ...r, learned: true }))
+  const { learned } = collections()
+  const rows = await learned.find({}, { projection: { _id: 0 } }).sort({ created_at: 1 }).limit(5000).toArray()
+  return rows.map((r) => ({
+    title: r.title,
+    lang: r.lang,
+    domain: r.domain,
+    text: r.text,
+    aliases: Array.isArray(r.aliases) ? r.aliases : [],
+    source: r.source,
+    url: r.url,
+    learned: true
+  }))
 }
 
 export async function getAnalyticsSummary() {
-  if (backendType === 'postgres') {
-    const [sessionsRes, msgStatsRes, intentRes, langRes, werRes, feedbackRes] = await Promise.all([
-      pgPool.query(`SELECT COUNT(*)::int AS total_sessions FROM chat_sessions`),
-      pgPool.query(`
-        SELECT
-          COUNT(*) FILTER (WHERE role = 'user')::int AS total_queries,
-          COUNT(*) FILTER (WHERE role = 'user' AND input_mode = 'voice')::int AS voice_queries,
-          COUNT(*) FILTER (WHERE role = 'user' AND input_mode = 'text')::int AS text_queries,
-          ROUND(AVG(asr_confidence)::numeric, 4) AS avg_asr_confidence,
-          ROUND(AVG(latency_ms)::numeric, 2) AS avg_latency_ms
-        FROM chat_messages
-      `),
-      pgPool.query(`
-        SELECT intent_tag, COUNT(*)::int AS count
-        FROM chat_messages
-        WHERE role = 'bot' AND intent_tag IS NOT NULL
-        GROUP BY intent_tag
-        ORDER BY count DESC
-        LIMIT 8
-      `),
-      pgPool.query(`
-        SELECT detected_language, COUNT(*)::int AS count
-        FROM chat_messages
-        WHERE role = 'user' AND detected_language IS NOT NULL
-        GROUP BY detected_language
-        ORDER BY count DESC
-        LIMIT 8
-      `),
-      pgPool.query(`
-        SELECT COUNT(*)::int AS total_wer_runs,
-               ROUND(AVG(wer)::numeric, 2) AS avg_wer,
-               ROUND(AVG(word_accuracy)::numeric, 2) AS avg_word_accuracy
-        FROM wer_evaluations
-      `),
-      pgPool.query(`
-        SELECT
-          COUNT(*) FILTER (WHERE feedback = 'up')::int AS positive,
-          COUNT(*) FILTER (WHERE feedback = 'down')::int AS negative
-        FROM chat_messages
-      `)
-    ])
-    return {
-      totalSessions: sessionsRes.rows[0]?.total_sessions || 0,
-      ...(msgStatsRes.rows[0] || {}),
-      topIntents: intentRes.rows,
-      topLanguages: langRes.rows,
-      ...(werRes.rows[0] || {}),
-      feedback: feedbackRes.rows[0] || { positive: 0, negative: 0 }
-    }
-  }
+  const { sessions, messages, wer } = collections()
 
-  if (backendType === 'sqlite') {
-    const totalSessions = sqliteDb.prepare(`SELECT COUNT(*) AS c FROM chat_sessions`).get().c || 0
-    const msgStats = sqliteDb
-      .prepare(
-        `SELECT
-           SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) AS total_queries,
-           SUM(CASE WHEN role = 'user' AND input_mode = 'voice' THEN 1 ELSE 0 END) AS voice_queries,
-           SUM(CASE WHEN role = 'user' AND input_mode = 'text' THEN 1 ELSE 0 END) AS text_queries,
-           ROUND(AVG(CASE WHEN asr_confidence IS NOT NULL THEN asr_confidence END), 4) AS avg_asr_confidence,
-           ROUND(AVG(CASE WHEN latency_ms IS NOT NULL THEN latency_ms END), 2) AS avg_latency_ms
-         FROM chat_messages`
-      )
-      .get()
-    const topIntents = sqliteDb
-      .prepare(
-        `SELECT intent_tag, COUNT(*) AS count
-         FROM chat_messages WHERE role = 'bot' AND intent_tag IS NOT NULL
-         GROUP BY intent_tag ORDER BY count DESC LIMIT 8`
-      )
-      .all()
-    const topLanguages = sqliteDb
-      .prepare(
-        `SELECT detected_language, COUNT(*) AS count
-         FROM chat_messages WHERE role = 'user' AND detected_language IS NOT NULL
-         GROUP BY detected_language ORDER BY count DESC LIMIT 8`
-      )
-      .all()
-    const werStats = sqliteDb
-      .prepare(
-        `SELECT COUNT(*) AS total_wer_runs,
-                ROUND(AVG(wer), 2) AS avg_wer,
-                ROUND(AVG(word_accuracy), 2) AS avg_word_accuracy
-         FROM wer_evaluations`
-      )
-      .get()
-    const feedback = sqliteDb
-      .prepare(
-        `SELECT
-           SUM(CASE WHEN feedback = 'up' THEN 1 ELSE 0 END) AS positive,
-           SUM(CASE WHEN feedback = 'down' THEN 1 ELSE 0 END) AS negative
-         FROM chat_messages`
-      )
-      .get()
-    return {
-      totalSessions,
-      total_queries: msgStats.total_queries || 0,
-      voice_queries: msgStats.voice_queries || 0,
-      text_queries: msgStats.text_queries || 0,
-      avg_asr_confidence: msgStats.avg_asr_confidence || null,
-      avg_latency_ms: msgStats.avg_latency_ms || null,
-      topIntents,
-      topLanguages,
-      total_wer_runs: werStats.total_wer_runs || 0,
-      avg_wer: werStats.avg_wer || null,
-      avg_word_accuracy: werStats.avg_word_accuracy || null,
-      feedback: { positive: feedback.positive || 0, negative: feedback.negative || 0 }
-    }
-  }
+  const [totalSessions, msgSummaryArr, topIntents, topLanguages, werSummaryArr] = await Promise.all([
+    sessions.countDocuments(),
+    messages
+      .aggregate([
+        {
+          $group: {
+            _id: null,
+            total_queries: { $sum: { $cond: [{ $eq: ['$role', 'user'] }, 1, 0] } },
+            voice_queries: {
+              $sum: {
+                $cond: [{ $and: [{ $eq: ['$role', 'user'] }, { $eq: ['$input_mode', 'voice'] }] }, 1, 0]
+              }
+            },
+            text_queries: {
+              $sum: {
+                $cond: [{ $and: [{ $eq: ['$role', 'user'] }, { $eq: ['$input_mode', 'text'] }] }, 1, 0]
+              }
+            },
+            avg_asr_confidence: {
+              $avg: { $cond: [{ $ne: ['$asr_confidence', null] }, '$asr_confidence', null] }
+            },
+            avg_latency_ms: {
+              $avg: { $cond: [{ $ne: ['$latency_ms', null] }, '$latency_ms', null] }
+            },
+            positive: { $sum: { $cond: [{ $eq: ['$feedback', 'up'] }, 1, 0] } },
+            negative: { $sum: { $cond: [{ $eq: ['$feedback', 'down'] }, 1, 0] } }
+          }
+        }
+      ])
+      .toArray(),
+    messages
+      .aggregate([
+        { $match: { role: 'bot', intent_tag: { $type: 'string' } } },
+        { $group: { _id: '$intent_tag', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 8 },
+        { $project: { _id: 0, intent_tag: '$_id', count: 1 } }
+      ])
+      .toArray(),
+    messages
+      .aggregate([
+        { $match: { role: 'user', detected_language: { $type: 'string' } } },
+        { $group: { _id: '$detected_language', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 8 },
+        { $project: { _id: 0, detected_language: '$_id', count: 1 } }
+      ])
+      .toArray(),
+    wer
+      .aggregate([
+        {
+          $group: {
+            _id: null,
+            total_wer_runs: { $sum: 1 },
+            avg_wer: { $avg: '$wer' },
+            avg_word_accuracy: { $avg: '$word_accuracy' }
+          }
+        }
+      ])
+      .toArray()
+  ])
 
-  const userMsgs = jsonStore.messages.filter((m) => m.role === 'user')
-  const botMsgs = jsonStore.messages.filter((m) => m.role === 'bot')
-  const confs = userMsgs.map((m) => m.asr_confidence).filter((v) => typeof v === 'number')
-  const lats = botMsgs.map((m) => m.latency_ms).filter((v) => typeof v === 'number')
+  const m = msgSummaryArr[0] || {}
+  const w = werSummaryArr[0] || {}
+
   return {
-    totalSessions: jsonStore.sessions.length,
-    total_queries: userMsgs.length,
-    voice_queries: userMsgs.filter((m) => m.input_mode === 'voice').length,
-    text_queries: userMsgs.filter((m) => m.input_mode === 'text').length,
-    avg_asr_confidence: confs.length ? Number((confs.reduce((a, b) => a + b, 0) / confs.length).toFixed(4)) : null,
-    avg_latency_ms: lats.length ? Number((lats.reduce((a, b) => a + b, 0) / lats.length).toFixed(2)) : null,
-    topIntents: [],
-    topLanguages: [],
-    total_wer_runs: jsonStore.wer.length,
-    avg_wer: jsonStore.wer.length
-      ? Number((jsonStore.wer.reduce((a, b) => a + b.wer, 0) / jsonStore.wer.length).toFixed(2))
-      : null,
-    avg_word_accuracy: jsonStore.wer.length
-      ? Number((jsonStore.wer.reduce((a, b) => a + b.word_accuracy, 0) / jsonStore.wer.length).toFixed(2))
-      : null,
+    totalSessions,
+    total_queries: m.total_queries || 0,
+    voice_queries: m.voice_queries || 0,
+    text_queries: m.text_queries || 0,
+    avg_asr_confidence:
+      typeof m.avg_asr_confidence === 'number' ? Number(m.avg_asr_confidence.toFixed(4)) : null,
+    avg_latency_ms: typeof m.avg_latency_ms === 'number' ? Number(m.avg_latency_ms.toFixed(2)) : null,
+    topIntents,
+    topLanguages,
+    total_wer_runs: w.total_wer_runs || 0,
+    avg_wer: typeof w.avg_wer === 'number' ? Number(w.avg_wer.toFixed(2)) : null,
+    avg_word_accuracy: typeof w.avg_word_accuracy === 'number' ? Number(w.avg_word_accuracy.toFixed(2)) : null,
     feedback: {
-      positive: botMsgs.filter((m) => m.feedback === 'up').length,
-      negative: botMsgs.filter((m) => m.feedback === 'down').length
+      positive: m.positive || 0,
+      negative: m.negative || 0
     }
-  }
-}
-
-function safeParseJson(raw, fallback) {
-  try {
-    return JSON.parse(raw)
-  } catch (_) {
-    return fallback
   }
 }
