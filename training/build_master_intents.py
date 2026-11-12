@@ -1,7 +1,7 @@
 """
-Master Intent Corpus Generator for VoxASR Chatbot
-Covers all Certified World Languages + Core Pillars of Computer Science & Mathematical Computing.
-Integrates certified language patterns, mathematical formulations, and algorithmic deep dives.
+Master Intent Corpus Generator for VoxASR Chatbot (v4.0 — Omni-Domain World Knowledge)
+Covers 35 Certified World Languages + Computer Science, Mathematics, Physics, Biology,
+Engineering, Commerce, Arts, Sports, Music, Dance, Entertainment, History & Society.
 """
 
 import json
@@ -24,14 +24,14 @@ def build_intents():
             "title": "Greeting & Certified Language Check",
             "patterns": greetings_patterns,
             "responses": [
-                "Hello! I am **VoxASR**, an AI assistant with a certified multi-language knowledge pool covering all major fields of **Computer Science** and **Mathematical Computing**.\n\n- **Microphone & Voice**: Click the mic button to speak in any certified language (`en-US`, `es-ES`, `zh-CN`, `hi-IN`, `fr-FR`, `de-DE`, `ja-JP`, `ru-RU`, `ar-SA`, etc.).\n- **Domains**: Inquire about Algorithms, Deep Learning, Numerical SVD/ODE, Cryptography, Distributed Systems, Compiler Design, or ASR Whisper/Conformer models!\n- **Auto-Upgradation**: My knowledge updates continuously via web scraping and ML/DL retraining.",
-                "Greetings! Voice and text channels are active across 30+ certified languages. Ask any mathematical computing or computer science question, or run speech recognition tests in the **WER Evaluator** tab."
+                "Hello! I am **VoxASR**, an AI Knowledge Browser & Voice Assistant across **35 certified languages** covering every major human discipline: **Science & Medicine, Mathematics & CS, Engineering, Commerce & Economics, Arts & Literature, Music & Dance, Sports, Entertainment & Cinema, History & Geography**.\n\n- **Complete Web Browser**: Ask in brief (`\"in short\"`) or in depth (`\"in detail\"`), and I browse multiple live websites, synthesize facts, and cite sources.\n- **Neural Intelligence**: Powered by a Multi-Scale Convolutional Neural Network (**TextCNN**) + Recursive Action-Reaction Introspection Engine.",
+                "Greetings! Voice and text channels are active across 35 certified languages. Ask me anything across Science, Sports, Music, Dance, Commerce, Arts, Engineering, Entertainment, or CS/Math — in brief summary or deep detailed breakdown!"
             ],
             "follow_ups": [
-                "What languages do you understand?",
-                "Explain Singular Value Decomposition (SVD)",
-                "How does OpenAI Whisper work?",
-                "What is P vs NP?"
+                "Explain Quantum Mechanics in detail",
+                "Explain Cricket rules in brief",
+                "Compare Classical Ballet and Bharatanatyam",
+                "How does compound interest work in finance?"
             ]
         },
         {
@@ -395,6 +395,234 @@ def build_intents():
             ]
         },
         {
+            "tag": "physics_astronomy_earth",
+            "title": "Physics, Astronomy & Earth Science",
+            "patterns": [
+                "what is quantum mechanics", "explain general relativity", "newtons laws of motion",
+                "what are black holes", "how does nuclear fusion work", "laws of thermodynamics entropy",
+                "quantum entanglement physics", "electromagnetic waves optics light", "big bang theory cosmology",
+                "plate tectonics earthquakes volcanoes", "climate science greenhouse effect", "higgs boson particle physics",
+                "física cuántica y relatividad", "física y astronomía", "aguieros negros universo",
+                "la physique quantique et relativité", "qué es la termodinámica", "quantenmechanik erklärt",
+                "量子力学和广义相对论", "黑洞与天体物理学", "क्वांटम भौतिकी और खगोल विज्ञान क्या है",
+                "न्यूटन के गति के नियम", "квантовая механика и астрономия"
+            ],
+            "responses": [
+                "**Physics, Astronomy & Earth Sciences** investigate matter, energy, spacetime, and cosmic evolution — ask for a brief definition or detailed laws on any topic such as **Quantum Mechanics**, **Relativity**, **Thermodynamics**, **Optics**, **Cosmology**, or **Plate Tectonics**."
+            ],
+            "follow_ups": [
+                "Explain Quantum Entanglement in detail",
+                "Summarize Newton's Laws of Motion in brief",
+                "How do black holes form?"
+            ]
+        },
+        {
+            "tag": "chemistry_biology_medicine",
+            "title": "Chemistry, Biology, Genetics & Medicine",
+            "patterns": [
+                "how does photosynthesis work", "explain dna replication transcription", "crispr gene editing",
+                "human immune system antibodies", "periodic table elements chemical bonds", "organic chemistry hydrocarbons",
+                "cellular respiration atp", "evolution natural selection darwin", "human brain neuroscience neurons",
+                "vaccines immunology antibiotics", "ecology food web biodiversity", "enzymes proteins amino acids",
+                "cómo funciona la fotosíntesis", "biología molecular y adn", "química orgánica tabla periódica",
+                "qu'est-ce que l'adn et la génétique", "biologie et médecine", "chemie und biologie",
+                "光合作用与细胞呼吸", "基因编辑与分子生物学", "डीएनए और प्रकाश संश्लेषण क्या है",
+                "मानव प्रतिरक्षा प्रणाली कैसे काम करती है", "биология и генетика человека"
+            ],
+            "responses": [
+                "**Chemistry, Biology & Medicine** cover atomic bonding, molecular pathways, genetics, neuroscience, ecology, and healthcare. Specify any molecule, organ system, disease mechanism, or biological process for brief facts or an in-depth multi-source synthesis."
+            ],
+            "follow_ups": [
+                "Explain CRISPR-Cas9 gene editing in detail",
+                "What is photosynthesis in brief?",
+                "How does mRNA vaccination work?"
+            ]
+        },
+        {
+            "tag": "engineering_robotics_energy",
+            "title": "Engineering, Robotics, Aerospace & Energy",
+            "patterns": [
+                "mechanical engineering thermodynamics stress", "civil engineering bridges structural load",
+                "electrical engineering circuits transistors", "aerospace engineering aerodynamics lift rocket",
+                "robotics kinematics pid control", "renewable energy solar photovoltaic wind turbine",
+                "internal combustion engine vs electric motor", "brushless dc motor inverter powertrain",
+                "control systems stability feedback loop", "jet engine turbine propulsion nozzle",
+                "hydraulic pneumatic actuator sensor fusion", "lithium ion battery chemistry ev",
+                "semiconductor fabrication lithography", "chemical engineering distillation",
+                "power grid transformer substation transmission", "finite element analysis cad structural",
+                "ingeniería mecánica y robótica", "energías renovables y aeroespacial",
+                "génie électrique et robotique", "maschinenbau und elektrotechnik",
+                "机械工程与航空航天", "机器人控制与新能源技术", "रोबोटिक्स और एयरोस्पेस इंजीनियरिंग क्या है"
+            ],
+            "responses": [
+                "**Engineering & Applied Technology** span **Mechanical, Civil, Electrical, Aerospace, Chemical, Robotics**, and **Clean Energy Systems** — ask about fluid mechanics, structural girders, rocket propulsion, PID control, or battery storage."
+            ],
+            "follow_ups": [
+                "How does an airplane wing generate lift?",
+                "Compare solid-state batteries and lithium-ion batteries",
+                "Explain PID control in robotics"
+            ]
+        },
+        {
+            "tag": "commerce_finance_economics",
+            "title": "Commerce, Finance, Economics & Business",
+            "patterns": [
+                "what is inflation and monetary policy", "supply and demand economics", "how does the stock market work",
+                "compound interest and time value of money", "balance sheet income statement cash flow",
+                "macroeconomics gdp fiscal policy", "microeconomics elasticity equilibrium", "marketing strategy 4ps",
+                "supply chain management logistics", "venture capital startup valuation", "central bank interest rates",
+                "accounting debit credit double entry", "international trade tariffs forex",
+                "economía finanzas y mercado de valores", "contabilidad y estrategia empresarial",
+                "économie finance et bourse", "wirtschaft und finanzen aktienmarkt",
+                "经济学与金融市场", "股票市场与宏观经济", "शेयर बाजार और मुद्रास्फीति क्या है",
+                "वित्त और अर्थशास्त्र के मूल सिद्धांत", "экономика и фондовый рынок"
+            ],
+            "responses": [
+                "**Commerce, Economics & Finance** cover **Macro/Microeconomics, Equity & Bond Markets, Banking, Corporate Accounting, Valuation, Marketing**, and **Supply Chains**. Ask for formulas, market mechanics, financial statements, or economic history in brief or full detail."
+            ],
+            "follow_ups": [
+                "Explain Quantitative Easing vs Quantitative Tightening in detail",
+                "What is EBITDA in brief?",
+                "Compare Microeconomics and Macroeconomics"
+            ]
+        },
+        {
+            "tag": "arts_literature_design",
+            "title": "Fine Arts, Literature, Architecture & Design",
+            "patterns": [
+                "renaissance art history leonardo michelangelo", "impressionism and modern painting",
+                "gothic architecture flying buttress", "classic world literature shakespeare homer",
+                "photography exposure triangle aperture shutter", "graphic design typography color theory",
+                "what is surrealism and cubism", "poetry sonnet haiku literary devices",
+                "sculpture carving bronze marble", "industrial design bauhaus modernism",
+                "historia del arte y literatura", "renacimiento arquitectura diseño",
+                "histoire de l'art et littérature", "kunstgeschichte und architektur",
+                "艺术史与世界文学", "文艺复兴与建筑设计", "कला इतिहास और विश्व साहित्य क्या है"
+            ],
+            "responses": [
+                "**Arts, Literature & Design** embrace painting movements, architecture, classical & contemporary literature, poetry, sculpture, photography, and design principles. Ask about artists, movements, techniques, or literary works."
+            ],
+            "follow_ups": [
+                "Explain the Renaissance art movement in detail",
+                "What is the exposure triangle in photography in brief?",
+                "Compare Impressionism and Expressionism"
+            ]
+        },
+        {
+            "tag": "music_audio_theory",
+            "title": "Music Theory, Genres & Instruments",
+            "patterns": [
+                "music theory scales chords harmony", "circle of fifths in music",
+                "indian classical music hindustani carnatic raga tala", "western classical composers mozart beethoven bach",
+                "history of jazz improvisation", "rock music hip hop electronic production",
+                "how does a guitar or piano produce sound", "violin tabla sitar flute musical instruments",
+                "tempo rhythm time signature melody", "synthesizers daw music mixing mastering",
+                "teoría musical escalas acordes", "música clásica jazz y rock",
+                "théorie musicale et instruments", "musiktheorie und klassische musik",
+                "音乐理论与古典音乐", "爵士乐与乐器演奏", "संगीत सिद्धांत राग और ताल क्या है",
+                "शास्त्रीय संगीत और गिटार कॉर्ड्स कैसे काम करते हैं"
+            ],
+            "responses": [
+                "**Music Theory, Genres & Instruments** span **Harmony, Scales, Ragas & Talas, Classical, Jazz, Rock, Hip-Hop, EDM**, and acoustic/electronic instruments — ask about scales, composers, genres, instruments, or production techniques."
+            ],
+            "follow_ups": [
+                "Explain Hindustani vs Carnatic classical music",
+                "What is the Circle of Fifths in brief?",
+                "How did Jazz evolve in the 20th century?"
+            ]
+        },
+        {
+            "tag": "dance_performing_arts",
+            "title": "Dance Forms, Choreography & Performing Arts",
+            "patterns": [
+                "what is bharatanatyam classical dance", "kathak kuchipudi odissi indian dance",
+                "history of ballet dance technique", "hip hop dance breaking popping locking",
+                "contemporary and modern dance choreography", "flamenco salsa tango ballroom dance",
+                "opera musical theatre stage craft", "folk dances around the world",
+                "danza clásica ballet y flamenco", "bailes tradicionales y coreografía",
+                "danse classique ballet et hip hop", "tanz und ballett geschichte",
+                "舞蹈艺术与芭蕾舞", "印度古典舞与现代舞", "भरतनाट्यम और कथक नृत्य क्या है",
+                "बैले और हिप हॉप डांस के प्रकार"
+            ],
+            "responses": [
+                "**Dance & Performing Arts** encompass Indian classical traditions (**Bharatanatyam, Kathak, Odissi, Kathakali**), **Ballet, Contemporary, Hip-Hop, Salsa, Tango, Flamenco**, choreography, and theatrical arts. Ask about origins, costumes, mudras, footwork, or iconic styles."
+            ],
+            "follow_ups": [
+                "Explain Bharatanatyam origin, mudras, and costume in detail",
+                "Compare Kathak and Ballet",
+                "What are the core elements of Hip-Hop dance?"
+            ]
+        },
+        {
+            "tag": "sports_athletics_games",
+            "title": "Sports, Athletics, Olympics & Mind Games",
+            "patterns": [
+                "cricket rules lbw duckworth lewis icc world cup", "football soccer rules offside fifa world cup",
+                "basketball nba rules three point shot", "tennis grand slam wimbledon scoring",
+                "badminton olympics shuttlecock rules", "chess rules castling en passant grandmaster",
+                "formula 1 f1 aerodynamics pit stop championship", "olympic games track and field marathon",
+                "swimming freestyle butterfly stroke", "martial arts judo karate boxing mma",
+                "reglas del fútbol y críquet", "baloncesto tenis y olimpiadas",
+                "règles du football et tennis", "fußball regeln und olympische spiele",
+                "足球规则与板球比赛", "篮球网球与奥林匹克运动会", "क्रिकेट और फुटबॉल के नियम क्या हैं",
+                "शतरंज ओलंपिक और फॉर्मूला वन रेसिंग"
+            ],
+            "responses": [
+                "**Sports & Athletics** cover rules, scoring systems, tactics, tournaments, leagues, and legends across **Cricket, Football (Soccer), Basketball, Tennis, Badminton, Chess, Formula 1, Swimming, Martial Arts**, and **The Olympic Games**."
+            ],
+            "follow_ups": [
+                "Explain the LBW and Duckworth-Lewis rules in Cricket in detail",
+                "What is the offside rule in Football in brief?",
+                "How does Formula 1 scoring work?"
+            ]
+        },
+        {
+            "tag": "entertainment_cinema_gaming",
+            "title": "Cinema, Animation, Television & Video Games",
+            "patterns": [
+                "history of cinema filmmaking cinematography", "academy awards oscars grammy emmy",
+                "anime and manga japan studio ghibli", "3d animation pixar cgi visual effects vfx",
+                "video game design unreal engine unity", "esports competitive gaming tournaments",
+                "television streaming ott platforms screenwriting", "bollywood hollywood world cinema",
+                "historia del cine y animación", "videojuegos y deportes electrónicos esports",
+                "cinéma animation et jeux vidéo", "filmgeschichte und videospiele",
+                "电影艺术与动画制作", "电子游戏与电子竞技", "सिनेमा फिल्म निर्माण और एनीमेशन क्या है",
+                "वीडियो गेम और ईस्पोर्ट्स टूर्नामेंट"
+            ],
+            "responses": [
+                "**Entertainment, Cinema & Gaming** cover film history, cinematography, VFX, animation & anime, screenwriting, major awards (Oscars/Grammys), streaming media, game engines, and esports."
+            ],
+            "follow_ups": [
+                "How are 3D animated movies rendered at Pixar?",
+                "Explain Studio Ghibli's impact on animation in brief",
+                "Compare Hollywood and Indian Cinema traditions"
+            ]
+        },
+        {
+            "tag": "history_geography_law_society",
+            "title": "World History, Geography, Philosophy, Law & Culture",
+            "patterns": [
+                "industrial revolution causes and impact", "ancient egypt mesopotamia indus valley",
+                "world war 1 and world war 2 history", "continents oceans highest mountains rivers",
+                "united nations international law human rights", "philosophy stoicism existentialism ethics",
+                "constitutional democracy separation of powers", "magna carta treaty parliamentary law",
+                "ancient greece roman empire silk road", "french revolution enlightenment colonialism",
+                "culinary arts fermentation world cuisine",
+                "geografía historia universal y filosofía", "derecho internacional y civilizaciones",
+                "histoire géographie et philosophie", "weltgeschichte geographie und recht",
+                "世界历史与地理文化", "哲学伦理与国际法", "विश्व इतिहास भूगोल और दर्शनशास्त्र क्या है",
+                "संविधान कानून और प्राचीन सभ्यताएं"
+            ],
+            "responses": [
+                "**World History, Geography, Law & Society** include ancient civilizations, modern history, physical & human geography, philosophy, constitutional governance, culinary traditions, and global culture."
+            ],
+            "follow_ups": [
+                "Explain the causes of the Industrial Revolution in detail",
+                "What is Stoicism philosophy in brief?",
+                "Compare the legislative and judicial branches"
+            ]
+        },
+        {
             "tag": "thanks_goodbye",
             "title": "Thanks & Farewell",
             "patterns": [
@@ -423,8 +651,8 @@ def build_intents():
 
     dataset = {
         "metadata": {
-            "domain": "Certified Multilingual Computer Science & Mathematical Computing AI Assistant",
-            "version": "2.0.0",
+            "domain": "Omni-Domain Multilingual AI Web Browser & Knowledge Assistant (35 Certified Languages, 28 World Disciplines)",
+            "version": "4.0.0",
             "total_intents": len(intents),
             "certified_languages_count": len(CERTIFIED_LANGUAGES)
         },

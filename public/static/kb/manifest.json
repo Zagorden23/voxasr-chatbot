@@ -1,37 +1,50 @@
 {
-  "version": 1794506032,
-  "generated_at": "2026-11-12T17:51:58Z",
-  "total_articles": 596,
-  "total_bytes": 496883,
+  "version": 1794512295,
+  "generated_at": "2026-11-12T19:28:21Z",
+  "total_articles": 1048,
+  "total_bytes": 1058110,
   "shards": [
     {
       "file": "kb-000.json",
-      "count": 596,
-      "bytes": 496883
+      "count": 1048,
+      "bytes": 1058110
     }
   ],
   "domains": {
+    "commerce_finance_economics": 48,
+    "arts_literature_design": 47,
+    "music_audio_theory": 47,
+    "sports_athletics_games": 47,
+    "entertainment_cinema_gaming": 46,
     "algorithms_complexity": 45,
     "machine_learning_dl": 45,
     "systems_distributed_computing": 45,
     "cryptography_security": 45,
     "gpu_hpc_computing": 45,
     "database_vector_search": 45,
+    "engineering_robotics_energy": 45,
+    "history_geography_law_society": 45,
     "data_structures": 44,
     "numerical_analysis": 44,
     "speech_ai_asr": 44,
     "calculus_linear_algebra_prob": 44,
+    "dance_performing_arts": 44,
     "compilers_programming_languages": 43,
     "theoretical_cs_discrete_math": 41,
     "nlp_large_language_models": 41,
-    "science_general": 25
+    "physics_astronomy_earth": 41,
+    "chemistry_biology_medicine": 41,
+    "science_general": 25,
+    "general": 1
   },
   "sources": {
-    "Wikipedia": 596
+    "Wikipedia": 1026,
+    "Wikipedia (learned)": 1,
+    "OpenAlex Peer-Reviewed": 21
   },
   "model": {
     "file": "chatbot_model.json",
-    "trained_at": "2026-11-12T17:53:52Z"
+    "trained_at": "2026-11-12T19:38:15Z"
   },
   "note": "full harvest"
 }

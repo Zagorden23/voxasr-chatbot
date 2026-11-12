@@ -137,18 +137,60 @@
       icon: 'fa-robot',
       desc: 'BPE Tokenization, RAG, BM25, Word Embeddings, BERT, Fine-Tuning',
       query: 'What is retrieval-augmented generation?'
+    },
+    {
+      id: 'physics_astronomy_earth',
+      title: 'Physics, Space & Earth',
+      icon: 'fa-meteor',
+      desc: 'Relativity, Quantum Mechanics, Exoplanets, Thermodynamics, Optics',
+      query: 'Explain quantum entanglement in brief'
+    },
+    {
+      id: 'chemistry_biology_medicine',
+      title: 'Chemistry, Biology & Medicine',
+      icon: 'fa-dna',
+      desc: 'CRISPR, Genomics, Organic Chemistry, Neuroscience, Pharmacology',
+      query: 'How does mRNA vaccine work in detail?'
+    },
+    {
+      id: 'commerce_finance_economics',
+      title: 'Commerce, Finance & Economics',
+      icon: 'fa-coins',
+      desc: 'Macroeconomics, Portfolio Theory, Accounting, Trade, Supply & Demand',
+      query: 'Compare Keynesian and Classical economics'
+    },
+    {
+      id: 'music_audio_theory',
+      title: 'Music & Acoustics Theory',
+      icon: 'fa-music',
+      desc: 'Harmony, Counterpoint, Hindustani Ragas, Jazz Improvisation, Sound Design',
+      query: 'Explain Hindustani classical raga music theory'
+    },
+    {
+      id: 'dance_performing_arts',
+      title: 'Dance & Performing Arts',
+      icon: 'fa-person-walking',
+      desc: 'Bharatanatyam, Kathak, Classical Ballet, Hip-Hop Choreography, Theatre',
+      query: 'Compare Bharatanatyam and Ballet techniques in detail'
+    },
+    {
+      id: 'sports_athletics_games',
+      title: 'Sports, Athletics & Strategy',
+      icon: 'fa-trophy',
+      desc: 'Cricket Laws, Football Tactics, Tennis, Chess Strategy, Olympic Athletics',
+      query: 'Explain the cricket LBW rule and swing bowling physics'
     }
   ]
 
   const MULTILINGUAL_SHOWCASE = [
+    { flag: '🌍', lang: 'Detail Mode', text: 'Explain photosynthesis and cellular respiration in detail' },
+    { flag: '⚡', lang: 'Brief Mode', text: 'What is CRISPR gene editing in brief?' },
+    { flag: '⚽', lang: 'Sports', text: 'Explain the offside rule in football with examples' },
+    { flag: '🎵', lang: 'Music', text: 'How do chord progressions work in jazz music?' },
+    { flag: '💃', lang: 'Dance', text: 'Tell me about Kathak classical dance history' },
     { flag: '🇪🇸', lang: 'Spanish', text: '¿Cómo funciona la retropropagación en redes neuronales?' },
     { flag: '🇨🇳', lang: 'Mandarin', text: '什么是Transformer架构和自注意力机制？' },
-    { flag: '🇮🇳', lang: 'Hindi', text: 'डाइक्स्ट्रा एल्गोरिदम और टाइम कॉम्प्लेक्सिटी क्या है?' },
-    { flag: '🇫🇷', lang: 'French', text: "Qu'est-ce que le théorème CAP en systèmes distribués?" },
-    { flag: '🇩🇪', lang: 'German', text: 'Wie funktioniert die RSA Verschlüsselung?' },
-    { flag: '🇷🇺', lang: 'Russian', text: 'Что такое машина Тьюринга и проблема остановки?' },
-    { flag: '🇯🇵', lang: 'Japanese', text: '特異値分解（SVD）とは何ですか？' },
-    { flag: '🇺🇸', lang: 'English', text: 'Compare Quicksort and Merge sort' }
+    { flag: '🇮🇳', lang: 'Hindi', text: 'डाइक्स्ट्रा एल्गोरिदम और टाइम कॉम्प्लेक्सिटी क्या है?' }
   ]
 
   const PRESET_WER_EXAMPLES = [
@@ -677,6 +719,10 @@
               topPredictions: botResp.topPredictions || [],
               matchedTokens: botResp.matchedTokens || [],
               sources: botResp.sources || [],
+              depthMode: botResp.depthMode || null,
+              questionKind: botResp.questionKind || null,
+              scrapedHosts: botResp.scrapedHosts || [],
+              introspection: botResp.introspection || null,
               learnedNew: Boolean(botResp.learnedNew),
               latencyMs: botResp.latencyMs
             }
@@ -1201,9 +1247,11 @@
                       'div',
                       { className: 'flex flex-wrap items-center gap-2 text-[11px] text-slate-400' },
                       e('span', { className: 'px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20' }, m.intentTitle),
+                      m.depthMode && e('span', { className: 'px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 capitalize' }, `${m.depthMode} mode`),
+                      m.scrapedHosts && m.scrapedHosts.length > 0 && e('span', { className: 'px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/20' }, `🌐 ${m.scrapedHosts.length} web site${m.scrapedHosts.length === 1 ? '' : 's'}`),
                       m.detectedLanguage && e('span', { className: 'text-slate-400' }, `🌐 ${m.detectedLanguage.label || m.detectedLanguage.lang}`),
                       typeof m.confidence === 'number' && e('span', { className: 'text-emerald-400' }, `${Math.round(m.confidence * 100)}% match`),
-                      m.learnedNew && e('span', { className: 'px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' }, 'Learned Live'),
+                      m.learnedNew && e('span', { className: 'px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' }, 'Live Browsed'),
                       typeof m.latencyMs === 'number' && e('span', { className: 'text-slate-500 font-mono' }, `${m.latencyMs}ms`)
                     )
                   : e(
@@ -1287,24 +1335,42 @@
                     },
                     e('i', { className: 'fas fa-thumbs-down' })
                   ),
-                  m.topPredictions && m.topPredictions.length > 0 && e(
+                  (m.topPredictions && m.topPredictions.length > 0 || m.introspection) && e(
                     'button',
                     {
                       onClick: () => setExpandedDetails((prev) => ({ ...prev, [m.id]: !prev[m.id] })),
                       className: 'hover:text-indigo-300 transition ml-auto'
                     },
-                    expandedDetails[m.id] ? 'Hide Classifier Scores' : 'Classifier Scores'
+                    expandedDetails[m.id] ? 'Hide CNN & Introspection' : 'CNN + Introspection'
                   )
                 ),
-                expandedDetails[m.id] && m.topPredictions && e(
+                expandedDetails[m.id] && (m.topPredictions || m.introspection) && e(
                   'div',
-                  { className: 'p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-[11px]' },
-                  m.topPredictions.map((p) =>
-                    e(
-                      'div',
-                      { key: p.tag, className: 'flex items-center justify-between gap-2' },
-                      e('span', { className: 'font-mono text-slate-300 truncate' }, p.tag),
-                      e('span', { className: 'text-indigo-400 font-mono' }, `${(p.probability * 100).toFixed(1)}%`)
+                  { className: 'p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2 text-[11px]' },
+                  m.topPredictions && m.topPredictions.length > 0 && e(
+                    'div',
+                    { className: 'space-y-1' },
+                    e('div', { className: 'text-[10px] uppercase tracking-wider text-slate-500 font-semibold' }, 'TextCNN Domain Predictions'),
+                    m.topPredictions.map((p) =>
+                      e(
+                        'div',
+                        { key: p.tag, className: 'flex items-center justify-between gap-2' },
+                        e('span', { className: 'font-mono text-slate-300 truncate' }, p.tag),
+                        e('span', { className: 'text-indigo-400 font-mono' }, `${(p.probability * 100).toFixed(1)}%`)
+                      )
+                    )
+                  ),
+                  m.introspection && m.introspection.steps && e(
+                    'div',
+                    { className: 'pt-2 border-t border-slate-800 space-y-1' },
+                    e('div', { className: 'text-[10px] uppercase tracking-wider text-emerald-400 font-semibold' }, `Recursive Introspection Trace (Q=${Math.round((m.introspection.finalSufficiencyQ || 0) * 100)}% • ${m.introspection.totalWebSources || 0} Web Sources)`),
+                    m.introspection.steps.map((st) =>
+                      e(
+                        'div',
+                        { key: st.step, className: 'flex flex-wrap items-center justify-between gap-2 text-slate-400 font-mono text-[10px]' },
+                        e('span', null, `Step ${st.step}: ${st.action} -> ${st.nextAction}`),
+                        e('span', { className: 'text-cyan-300' }, `Q=${Math.round((st.sufficiencyQ || 0) * 100)}% | Web=${st.webSources || 0}`)
+                      )
                     )
                   )
                 ),
@@ -1331,7 +1397,7 @@
             'div',
             { className: 'flex gap-3 items-center text-xs text-slate-400' },
             e('div', { className: 'w-8 h-8 rounded-lg bg-indigo-600/50 text-white flex items-center justify-center' }, e('i', { className: 'fas fa-spinner fa-spin' })),
-            e('span', null, 'Analyzing query across Knowledge Pool & Neural Classifier...')
+            e('span', null, 'Browsing web sources & running TextCNN + Recursive Introspection...')
           ),
           interimTranscript && e(
             'div',
@@ -1825,15 +1891,15 @@
       modelInfo && e(
         'div',
         { className: 'bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4' },
-        e('h2', { className: 'text-base font-bold text-white' }, 'Softmax Neural & TF-IDF Model Architecture'),
+        e('h2', { className: 'text-base font-bold text-white' }, 'Multi-Scale 1D TextCNN & 3-Step Recursive Introspection Architecture'),
         e(
           'div',
           { className: 'grid grid-cols-2 sm:grid-cols-4 gap-3' },
           [
-            { label: 'Training Accuracy', val: `${((modelInfo.train_accuracy || 0) * 100).toFixed(2)}%` },
-            { label: '5-Fold CV Accuracy', val: `${((modelInfo.cv_accuracy_mean || 0) * 100).toFixed(1)}%` },
-            { label: 'TF-IDF Multilingual Vocab', val: `${modelInfo.vocab_size || 0} n-grams` },
-            { label: 'Training Samples', val: `${modelInfo.augmented_samples || 0} (${modelInfo.num_classes || 0} classes)` }
+            { label: 'TextCNN Train / Val Acc', val: `${((modelInfo.train_accuracy || 0) * 100).toFixed(1)}% / ${((modelInfo.cnn_val_accuracy || modelInfo.cv_accuracy_mean || 0) * 100).toFixed(1)}%` },
+            { label: 'Introspection Policy / Critic', val: `${((modelInfo.introspection_policy_acc || 0) * 100).toFixed(1)}% / ${((modelInfo.introspection_critic_cal || 0) * 100).toFixed(1)}%` },
+            { label: 'CNN + TF-IDF Vocabulary', val: `${modelInfo.cnn_vocab_size || 0} + ${modelInfo.vocab_size || 0}` },
+            { label: 'Training Samples & Domains', val: `${modelInfo.augmented_samples || 0} (${modelInfo.num_classes || 0} classes)` }
           ].map((m, i) =>
             e(
               'div',

@@ -38,9 +38,9 @@ import {
 import {
   checkHotReload,
   getKnowledgeIndex,
+  browseAndLearnTopic,
   getManifestMeta,
   getUpgradeState,
-  learnTopicFromWeb,
   runNativeKnowledgeUpgrade
 } from './web_learner.js'
 
@@ -309,10 +309,20 @@ app.post('/api/knowledge/scrape', async (c) => {
     } catch (_) {}
   }
 
-  const doc = await learnTopicFromWeb(topic, lang)
+  const directUrl = /^https?:\/\//i.test(topic) ? [topic] : body.url && /^https?:\/\//i.test(String(body.url)) ? [String(body.url).trim()] : []
+  const depthMode = String(body.depth || 'detailed')
+  const resBrowse = await browseAndLearnTopic(topic, lang, body.domain || null, {
+    depthMode,
+    directUrls: directUrl
+  })
+  const doc = resBrowse.primary
   if (!doc) {
     return c.json(
-      { ok: false, error: `Could not find an authoritative Wikipedia or ArXiv article for "${topic}".` },
+      {
+        ok: false,
+        error: `Could not extract readable public web content matching "${topic}".`,
+        blockedUrls: resBrowse.blockedUrls || []
+      },
       404
     )
   }
@@ -320,15 +330,49 @@ app.post('/api/knowledge/scrape', async (c) => {
   const stats = getKnowledgeIndex().stats()
   return c.json({
     ok: true,
-    message: `Ingested "${doc.title}" into live Knowledge Pool (${stats.articles} total articles).`,
+    message: `Browsed ${resBrowse.docs.length} live page(s) and ingested "${doc.title}" (${stats.articles} total articles).`,
     article: {
       title: doc.title,
       source: doc.source,
       url: doc.url,
-      summary: doc.text.slice(0, 320)
+      summary: String(doc.extract || doc.text || '').slice(0, 320)
     },
+    docs: resBrowse.docs.map((d) => ({
+      title: d.title,
+      source: d.source,
+      url: d.url,
+      summary: String(d.extract || d.text || '').slice(0, 260)
+    })),
+    scrapedHosts: resBrowse.scrapedHosts,
+    blockedUrls: resBrowse.blockedUrls,
     total_articles: stats.articles,
     learned_articles: stats.learned
+  })
+})
+
+app.post('/api/web/browse', async (c) => {
+  let body = {}
+  try {
+    body = await c.req.json()
+  } catch (_) {
+    return c.json({ ok: false, error: 'Invalid JSON request body' }, 400)
+  }
+  const query = String(body.query || body.topic || body.url || '').trim().slice(0, 240)
+  if (!query || query.length < 2) {
+    return c.json({ ok: false, error: 'A valid query or URL is required' }, 400)
+  }
+  const lang = String(body.lang || 'en').split('-')[0].toLowerCase()
+  const directUrls = /^https?:\/\//i.test(query) ? [query] : []
+  const resBrowse = await browseAndLearnTopic(query, lang, body.domain || null, {
+    depthMode: String(body.depth || 'standard'),
+    directUrls
+  })
+  return c.json({
+    ok: Boolean(resBrowse.docs?.length),
+    query,
+    docs: resBrowse.docs || [],
+    scrapedHosts: resBrowse.scrapedHosts || [],
+    blockedUrls: resBrowse.blockedUrls || []
   })
 })
 
@@ -435,6 +479,7 @@ app.post('/api/chat', async (c) => {
   const asrLang = String(body.asrLang || '').trim().slice(0, 20)
   const sessionId = String(body.sessionId || `sess_${Date.now().toString(36)}`).slice(0, 100)
   const autoLearn = body.autoLearn !== false
+  const skipLiveWeb = body.skipLiveWeb === true
 
   try {
     await checkHotReload(reloadModel)
@@ -442,7 +487,8 @@ app.post('/api/chat', async (c) => {
     const prediction = await generateIntelligentReply(message, {
       langHint: asrLang,
       contextTopic,
-      autoLearn
+      autoLearn,
+      skipLiveWeb
     })
 
     const detectedLangCode = prediction.detectedLanguage?.lang || asrLang || 'en-US'

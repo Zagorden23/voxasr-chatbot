@@ -13,6 +13,9 @@ import path from 'node:path'
 import { KnowledgeIndex } from './knowledge.js'
 import { cleanExtract, decodeEntities, truncateAtSentence } from './text.js'
 import { loadLearnedArticlesFromDb, saveLearnedArticle } from './db.js'
+import { browseWebForQuery, isSafePublicUrl, scrapeExternalWebPage } from './web_browser.js'
+
+export { browseWebForQuery, isSafePublicUrl, scrapeExternalWebPage }
 
 const USER_AGENT = 'VoxASR-KnowledgeBot/3.0 (commercial multilingual CS/Math AI assistant)'
 
@@ -282,43 +285,59 @@ async function persistLearnedDoc(doc) {
   }
 }
 
-export async function learnTopicFromWeb(topic, lang = 'en', domain = null) {
+export async function browseAndLearnTopic(topic, lang = 'en', domain = null, analysis = {}, options = {}) {
   const cleanTopic = String(topic || '').trim()
-  if (!cleanTopic || cleanTopic.length < 2) return null
-
-  const shortLang = String(lang || 'en').split('-')[0].toLowerCase()
-  const tryLangs = shortLang !== 'en' ? [shortLang, 'en'] : ['en']
-
-  for (const l of tryLangs) {
-    try {
-      let doc = await fetchWikipediaExtract(cleanTopic, l)
-      if (!doc) {
-        const hits = await searchWikipediaTitles(cleanTopic, l, 3)
-        for (const hit of hits) {
-          doc = await fetchWikipediaExtract(hit, l)
-          if (doc) break
-        }
-      }
-      if (doc) {
-        if (domain) doc.domain = domain
-        if (cleanTopic.toLowerCase() !== doc.title.toLowerCase()) {
-          doc.aliases = [...new Set([...(doc.aliases || []), cleanTopic])].slice(0, 10)
-        }
-        await persistLearnedDoc(doc)
-        return doc
-      }
-    } catch (_) {}
+  if (!cleanTopic && (!analysis?.directUrls || analysis.directUrls.length === 0)) {
+    return { primary: null, docs: [], scrapedHosts: [], blockedUrls: [] }
   }
 
-  // Fallback to ArXiv search
-  try {
-    const arxivDocs = await fetchArxivArticles(`all:${cleanTopic}`, domain, 2)
-    if (arxivDocs.length > 0) {
-      for (const doc of arxivDocs) await persistLearnedDoc(doc)
-      return arxivDocs[0]
-    }
-  } catch (_) {}
+  const shortLang = String(lang || 'en').split('-')[0].toLowerCase()
+  const { docs, scrapedHosts, blockedUrls } = await browseWebForQuery(
+    cleanTopic,
+    { ...analysis, lang: shortLang },
+    domain,
+    { ...options, lang: shortLang }
+  )
 
+  if (!docs || docs.length === 0) {
+    return { primary: null, docs: [], scrapedHosts: [], blockedUrls }
+  }
+
+  const persisted = []
+  for (let i = 0; i < Math.min(docs.length, 4); i++) {
+    const d = { ...docs[i] }
+    if (domain && (!d.domain || d.domain === 'general_world_knowledge')) d.domain = domain
+    if (i === 0 && cleanTopic && cleanTopic.toLowerCase() !== String(d.title || '').toLowerCase()) {
+      d.aliases = [...new Set([...(d.aliases || []), cleanTopic])].slice(0, 10)
+    }
+    try {
+      await persistLearnedDoc(d)
+      persisted.push(d)
+    } catch (_) {
+      persisted.push(d)
+    }
+  }
+
+  return {
+    primary: persisted[0] || docs[0],
+    docs: persisted.length > 0 ? [...persisted, ...docs.slice(persisted.length)] : docs,
+    scrapedHosts,
+    blockedUrls
+  }
+}
+
+export async function learnTopicFromWeb(topic, lang = 'en', domain = null, analysis = {}) {
+  const cleanTopic = String(topic || '').trim()
+  if (!cleanTopic && (!analysis?.directUrls || analysis.directUrls.length === 0)) return null
+
+  const shortLang = String(lang || 'en').split('-')[0].toLowerCase()
+  const res = await browseAndLearnTopic(cleanTopic, shortLang, domain, analysis)
+  if (res.primary) return res.primary
+
+  if (shortLang !== 'en') {
+    const enRes = await browseAndLearnTopic(cleanTopic, 'en', domain, analysis)
+    if (enRes.primary) return enRes.primary
+  }
   return null
 }
 
@@ -329,7 +348,7 @@ export async function runNativeKnowledgeUpgrade() {
 
   lastUpgradeStatus = {
     is_upgrading: true,
-    last_progress: 'Harvesting latest ArXiv CS/Math preprints & Wikipedia concepts...',
+    last_progress: 'Harvesting multi-website world knowledge & ArXiv/OpenAlex feeds...',
     last_report: null
   }
 
@@ -352,18 +371,24 @@ export async function runNativeKnowledgeUpgrade() {
       }
 
       const bonusTopics = [
+        { topic: 'James Webb Space Telescope', domain: 'physics_astronomy_earth' },
+        { topic: 'CRISPR gene editing', domain: 'chemistry_biology_medicine' },
+        { topic: 'Solid-state battery engineering', domain: 'engineering_robotics_energy' },
+        { topic: 'Behavioral economics', domain: 'commerce_finance_economics' },
+        { topic: 'Renaissance perspective painting', domain: 'arts_literature_design' },
+        { topic: 'Hindustani classical raga music theory', domain: 'music_audio_theory' },
+        { topic: 'Bharatanatyam classical dance', domain: 'dance_performing_arts' },
+        { topic: 'Cricket LBW laws and bowling swing physics', domain: 'sports_athletics_games' },
+        { topic: 'Cinematography chiaroscuro lighting', domain: 'entertainment_cinema_gaming' },
+        { topic: 'Magna Carta constitutional law', domain: 'history_geography_law_society' },
         { topic: 'FlashAttention', domain: 'nlp_large_language_models' },
-        { topic: 'Rotary Position Embedding', domain: 'machine_learning_dl' },
-        { topic: 'Low-rank adaptation', domain: 'nlp_large_language_models' },
-        { topic: 'ML-KEM', domain: 'cryptography_security' },
-        { topic: 'HNSW', domain: 'database_vector_search' },
-        { topic: 'Connectionist temporal classification', domain: 'speech_ai_asr' }
+        { topic: 'HNSW vector search', domain: 'database_vector_search' }
       ]
-      lastUpgradeStatus.last_progress = 'Checking Wikipedia for emerging CS/Math topics...'
+      lastUpgradeStatus.last_progress = 'Browsing live websites across 12 world subjects...'
       for (const item of bonusTopics) {
         const before = index.size
-        await learnTopicFromWeb(item.topic, 'en', item.domain).catch(() => null)
-        if (index.size > before) addedCount++
+        await browseAndLearnTopic(item.topic, 'en', item.domain, { depthMode: 'standard' }).catch(() => null)
+        if (index.size > before) addedCount += index.size - before
       }
 
       const duration = Number(((Date.now() - startedAt) / 1000).toFixed(2))
@@ -390,7 +415,7 @@ export async function runNativeKnowledgeUpgrade() {
 
   return {
     ok: true,
-    message: 'Live ArXiv & Wikipedia knowledge harvest initiated in background.',
+    message: 'Omni-domain multi-website & academic knowledge harvest initiated in background.',
     status: 'started'
   }
 }

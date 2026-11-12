@@ -12,7 +12,16 @@ import {
   leadOf
 } from './knowledge.js'
 import { detectLanguage, isCjkChar, normalizeText, tokenize, wikiLang } from './text.js'
-import { getKnowledgeIndex, learnTopicFromWeb } from './web_learner.js'
+import { browseAndLearnTopic, getKnowledgeIndex } from './web_learner.js'
+import { synthesizeMultiSourceAnswer } from './query_analyzer.js'
+import {
+  buildReactionVector,
+  computeShannonEntropyNormalized,
+  INTROSPECTION_ACTIONS,
+  runTextCnnForward,
+  softmaxArray,
+  stepRecursiveIntrospection
+} from './neural_introspection.js'
 
 const MODEL_PATH = path.resolve(process.cwd(), 'src', 'model', 'chatbot_model.json')
 
@@ -274,22 +283,25 @@ export function predictIntent(userMessage, langHint = '') {
     }
   }
 
-  if (tfCounts.size === 0) {
+  if (tfCounts.size === 0 && !model.cnn) {
     return {
       intentTag: 'unknown',
-      intentTitle: 'General CS & Math Assistant',
+      intentTitle: 'Omni-Domain Knowledge Assistant',
       confidence: 0.15,
       detectedLanguage: langMeta,
       reply:
-        "I didn't find matching keywords in my classifier vocabulary for that query. Try asking about a specific Computer Science or Mathematical Computing topic (e.g. **SVD**, **Dijkstra**, **Transformers**, **Raft**, **RSA**), or ask me to compute a math expression!",
+        "Let me search across the live web and my multi-domain knowledge pool for that query! You can ask about any field—Science, Medicine, Engineering, Commerce, Arts, Music, Dance, Sports, Entertainment, History, CS, or Mathematics.",
       followUps: [
-        'Explain Singular Value Decomposition (SVD)',
-        'What is Dijkstra shortest path algorithm?',
-        'How does OpenAI Whisper work?',
-        'Compare B+ tree and LSM tree'
+        'Explain quantum entanglement in brief',
+        'Explain cricket LBW rules in detail',
+        'How does Hindustani classical raga work?',
+        'Compare Keynesian and Classical economics'
       ],
       topPredictions: [],
       matchedTokens: [],
+      hiddenState: null,
+      cnnLogits: null,
+      allProbs: null,
       latencyMs: Number((performance.now() - start).toFixed(3))
     }
   }
@@ -324,15 +336,21 @@ export function predictIntent(userMessage, langHint = '') {
   }
 
   let expSum = 0
-  const probs = new Array(numClasses)
+  const linProbs = new Array(numClasses)
   for (let c = 0; c < numClasses; c++) {
     const e = Math.exp(logits[c] - maxLogit)
-    probs[c] = e
+    linProbs[c] = e
     expSum += e
   }
   for (let c = 0; c < numClasses; c++) {
-    probs[c] /= expSum
+    linProbs[c] /= expSum
   }
+
+  // Execute Multi-Scale 1D TextCNN forward pass when trained CNN weights are present
+  const cnnRes = model.cnn ? runTextCnnForward(userMessage, sparseVec, model.cnn) : null
+  const probs = cnnRes
+    ? linProbs.map((lp, c) => 0.72 * cnnRes.probs[c] + 0.28 * lp)
+    : linProbs
 
   const ranked = probs
     .map((p, idx) => ({
@@ -360,6 +378,10 @@ export function predictIntent(userMessage, langHint = '') {
     followUps: intentObj.follow_ups || [],
     topPredictions: ranked.slice(0, 4),
     matchedTokens,
+    allProbs: probs,
+    hiddenState: cnnRes?.hidden || null,
+    cnnLogits: cnnRes?.logits || logits,
+    cnnSeqTokens: cnnRes?.seqTokens || [],
     latencyMs: Number((performance.now() - start).toFixed(3))
   }
 }
@@ -378,27 +400,109 @@ const CONVERSATIONAL_INTENTS = new Set([
 
 const FOLLOWUP_PRONOUN_RE = /\b(it|its|this|that|they|them|their|same)\b/i
 
-function formatKnowledgeAnswer(subject, passage, kbIndex, learnedNew = false) {
-  const doc = subject.doc
-  const sentences = kbIndex.sentences(subject.idx)
-  const lead = leadOf(sentences, 680) || doc.text
-  let body = ''
+function docToSynthesizable(doc) {
+  if (!doc) return null
+  return {
+    ...doc,
+    extract: doc.extract || doc.text || ''
+  }
+}
 
-  if (passage && passage.text && !lead.startsWith(passage.text.slice(0, 40))) {
-    body = `**${doc.title}**\n\n${passage.text}\n\n> **Background:** ${lead}`
-  } else {
-    body = `**${doc.title}**\n\n${lead}`
+function buildStepTrace(stepNum, actionTaken, stepOut, reaction) {
+  if (!stepOut) {
+    return {
+      step: stepNum,
+      action: actionTaken,
+      nextAction: actionTaken,
+      sufficiencyQ: Number(Math.min(0.95, 0.4 + reaction[6] * 0.5).toFixed(3)),
+      webSources: Math.round(reaction[10] * 4),
+      bm25Rel: Number((reaction[0] * 12).toFixed(2))
+    }
+  }
+  return {
+    step: stepNum,
+    action: actionTaken,
+    nextAction: stepOut.nextAction,
+    nextActionProb: stepOut.nextActionProb,
+    sufficiencyQ: stepOut.qHat,
+    gateRetention: stepOut.gateRetention,
+    webSources: Math.round(reaction[10] * 4),
+    bm25Rel: Number((reaction[0] * 12).toFixed(2))
+  }
+}
+
+function makeConversationalTrace(actionName, prediction, depthMode) {
+  const model = activeModel
+  const probs = prediction.allProbs || []
+  const reaction = buildReactionVector({
+    bm25TopScore: 8,
+    spanCount: 2,
+    tokenCoverage: 0.9,
+    domainAgree: 1.0,
+    clfTopProb: prediction.confidence || 0.9,
+    clfEntropy: computeShannonEntropyNormalized(probs),
+    passageChars: 600,
+    depthMode,
+    isComparison: false,
+    webSourceCount: 0,
+    sentenceRichness: 0.8
+  })
+  const actionIdx = Math.max(0, INTROSPECTION_ACTIONS.indexOf(actionName))
+  const s1 = model.introspection && prediction.hiddenState
+    ? stepRecursiveIntrospection(model.introspection, prediction.hiddenState, actionIdx, reaction)
+    : null
+  return {
+    steps: [buildStepTrace(1, actionName, s1, reaction)],
+    finalAction: s1?.nextAction || actionName,
+    finalSufficiencyQ: s1?.qHat ?? 0.96,
+    totalWebSources: 0,
+    scrapedHosts: [],
+    blockedChallengeCount: 0
+  }
+}
+
+function mergeDocsForSynthesis(liveDocs, kbHits) {
+  const out = []
+  const seen = new Set()
+  const addItem = (rawDoc, relScore = 1.0) => {
+    const doc = docToSynthesizable(rawDoc)
+    if (!doc || !doc.extract || doc.extract.length < 40) return
+    const key = doc.url || `${String(doc.source || 'KB').toLowerCase()}::${String(doc.title || '').toLowerCase()}`
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push({ ...doc, _score: relScore })
   }
 
-  const badge = learnedNew
-    ? `🌐 Learned live from ${doc.source}`
-    : `📚 Knowledge Pool (${doc.source})`
+  // Interleave live external web sources first alongside high-relevance KB documents
+  for (const d of liveDocs || []) addItem({ ...d, _liveWeb: true }, 2.2)
+  for (const h of kbHits || []) addItem(h.doc, 1.0 + (h.rel || 0))
+  return out
+}
 
-  body += `\n\n_${badge}_`
-  if (doc.url) {
-    body += ` — ${doc.url}`
+function refineIntentFromDeltas(basePrediction, deltaSum) {
+  const model = activeModel
+  if (!basePrediction.cnnLogits || !deltaSum || deltaSum.length !== model.classes.length) {
+    return basePrediction
   }
-  return body
+  const combined = basePrediction.cnnLogits.map((l, c) => l + 0.3 * deltaSum[c])
+  const refinedProbs = softmaxArray(combined)
+  const ranked = refinedProbs
+    .map((p, idx) => ({
+      index: idx,
+      tag: model.intents[idx].tag,
+      title: model.intents[idx].title,
+      probability: Number(p.toFixed(4))
+    }))
+    .sort((a, b) => b.probability - a.probability)
+  const best = ranked[0]
+  if (!best) return basePrediction
+  return {
+    ...basePrediction,
+    intentTag: best.tag,
+    intentTitle: best.title,
+    confidence: best.probability,
+    topPredictions: ranked.slice(0, 4)
+  }
 }
 
 export async function generateIntelligentReply(userMessage, options = {}) {
@@ -406,6 +510,7 @@ export async function generateIntelligentReply(userMessage, options = {}) {
   const langHint = options.langHint || ''
   const contextTopic = options.contextTopic || null
   const autoLearn = options.autoLearn !== false
+  const skipLiveWeb = Boolean(options.skipLiveWeb)
 
   const basePrediction = predictIntent(userMessage, langHint)
   const langMeta = basePrediction.detectedLanguage
@@ -426,28 +531,17 @@ export async function generateIntelligentReply(userMessage, options = {}) {
       sourceTitle: 'Math Evaluator',
       sourceUrl: null,
       sources: [],
-      learnedNew: false,
-      latencyMs: Number((performance.now() - start).toFixed(3))
-    }
-  }
-
-  // 2. Conversational / meta-capability intents take priority when confident
-  const wordCount = userMessage.trim().split(/\s+/).length
-  if (
-    CONVERSATIONAL_INTENTS.has(basePrediction.intentTag) &&
-    (basePrediction.confidence >= 0.42 || (basePrediction.intentTag === 'greeting' && wordCount <= 5))
-  ) {
-    return {
-      ...basePrediction,
-      sources: [],
-      sourceTitle: null,
-      sourceUrl: null,
+      depthMode: 'brief',
+      questionKind: 'math',
+      scrapedHosts: [],
+      introspection: makeConversationalTrace('evaluate_math', basePrediction, 'brief'),
       learnedNew: false,
       latencyMs: Number((performance.now() - start).toFixed(3))
     }
   }
 
   const kbIndex = getKnowledgeIndex()
+  const wordCount = userMessage.trim().split(/\s+/).length
 
   // Resolve follow-up pronoun context if previous turn discussed a topic
   let effectiveQuery = userMessage
@@ -457,115 +551,274 @@ export async function generateIntelligentReply(userMessage, options = {}) {
 
   const analysis = analyzeQuery(effectiveQuery, shortLang)
 
-  // 3. Side-by-side comparison ("Compare A and B" / "A vs B")
-  if (analysis.comparison && kbIndex.size > 0) {
-    const [termA, termB] = analysis.comparison
-    const findOrLearn = async (term) => {
-      const toks = tokenize(term, shortLang, true)
-      let hits = kbIndex.findSubjects(toks, shortLang, 1)
-      if ((!hits.length || hits[0].rel < 0.42) && autoLearn) {
-        await learnTopicFromWeb(term, shortLang, basePrediction.intentTag).catch(() => null)
-        hits = kbIndex.findSubjects(toks, shortLang, 1)
-      }
-      return hits[0] || null
+  // 2. Conversational / meta-capability intents take priority when confident & no URL pasted
+  if (
+    analysis.directUrls.length === 0 &&
+    CONVERSATIONAL_INTENTS.has(basePrediction.intentTag) &&
+    (basePrediction.confidence >= 0.48 || (basePrediction.intentTag === 'greeting' && wordCount <= 4))
+  ) {
+    return {
+      ...basePrediction,
+      sources: [],
+      sourceTitle: null,
+      sourceUrl: null,
+      depthMode: analysis.depthMode,
+      questionKind: 'conversational',
+      scrapedHosts: [],
+      introspection: makeConversationalTrace('answer_conversational', basePrediction, analysis.depthMode),
+      learnedNew: false,
+      latencyMs: Number((performance.now() - start).toFixed(3))
+    }
+  }
+
+  const introModel = activeModel.introspection
+  const probs0 = basePrediction.allProbs || []
+  const entropy0 = computeShannonEntropyNormalized(probs0)
+  const isCompare = Boolean(analysis.comparison || analysis.questionKind === 'pros_cons')
+
+  // -------------------- STEP 1: Initial Local KB Probe + Reaction r^(0) --------------------
+  let hits = kbIndex.size > 0 ? kbIndex.findSubjects(analysis.tokens, shortLang, 5) : []
+  let top = hits[0]
+  const localNonWikiDocs = hits.filter(
+    (h) => h.doc?.learned && h.doc?.source && !String(h.doc.source).toLowerCase().includes('wikipedia')
+  )
+  const localCharSum = hits.slice(0, 3).reduce((acc, h) => acc + String(h.doc?.text || '').length, 0)
+  const initActionName = isCompare ? 'compare_entities' : 'retrieve_local_kb'
+  const initActionIdx = Math.max(0, INTROSPECTION_ACTIONS.indexOf(initActionName))
+
+  const reaction0 = buildReactionVector({
+    bm25TopScore: (top?.rel || 0) * 12,
+    spanCount: hits.length,
+    tokenCoverage: top?.span?.share || (top ? top.rel : 0),
+    domainAgree: top?.doc?.domain === basePrediction.intentTag ? 1.0 : 0.45,
+    clfTopProb: basePrediction.confidence,
+    clfEntropy: entropy0,
+    passageChars: localCharSum,
+    depthMode: analysis.depthMode,
+    isComparison: isCompare,
+    webSourceCount: localNonWikiDocs.length,
+    sentenceRichness: Math.min(1, localCharSum / 1800)
+  })
+
+  let zState = basePrediction.hiddenState ? [...basePrediction.hiddenState] : null
+  const deltaSum = zState ? new Array(activeModel.classes.length).fill(0) : null
+  const step1 = introModel && zState ? stepRecursiveIntrospection(introModel, zState, initActionIdx, reaction0) : null
+  if (step1) {
+    zState = step1.zNext
+    for (let c = 0; c < deltaSum.length; c++) deltaSum[c] += step1.delta[c]
+  }
+  const traceSteps = [buildStepTrace(1, initActionName, step1, reaction0)]
+
+  // -------------------- STEP 2: Multi-Website Browser Action Dispatch --------------------
+  const needsLiveBrowse =
+    !skipLiveWeb &&
+    autoLearn &&
+    (analysis.directUrls.length > 0 ||
+      Boolean(analysis.searchQuery && analysis.searchQuery.length >= 2) &&
+        (localNonWikiDocs.length < 2 ||
+          !top ||
+          top.rel < 0.72 ||
+          analysis.depthMode === 'detailed' ||
+          step1?.nextAction === 'browse_web_multi' ||
+          step1?.nextAction === 'synthesize_deep' ||
+          (step1 && step1.qHat < 0.78)))
+
+  let liveDocs = []
+  let scrapedHosts = []
+  let blockedChallengeCount = 0
+  let learnedNew = false
+  let compareBlocks = null
+  const domainHint = basePrediction.intentTag !== 'unknown' ? basePrediction.intentTag : null
+
+  if (needsLiveBrowse) {
+    if (analysis.comparison && analysis.comparison.length === 2) {
+      const [termA, termB] = analysis.comparison
+      const [resA, resB, resOverview] = await Promise.all([
+        browseAndLearnTopic(termA, shortLang, domainHint, { ...analysis, directUrls: [] }).catch(() => ({
+          docs: [],
+          scrapedHosts: [],
+          blockedUrls: []
+        })),
+        browseAndLearnTopic(termB, shortLang, domainHint, { ...analysis, directUrls: [] }).catch(() => ({
+          docs: [],
+          scrapedHosts: [],
+          blockedUrls: []
+        })),
+        browseAndLearnTopic(analysis.searchQuery, shortLang, domainHint, analysis).catch(() => ({
+          docs: [],
+          scrapedHosts: [],
+          blockedUrls: []
+        }))
+      ])
+      liveDocs = [...(resOverview.docs || []), ...(resA.docs || []), ...(resB.docs || [])]
+      scrapedHosts = [...new Set([...(resOverview.scrapedHosts || []), ...(resA.scrapedHosts || []), ...(resB.scrapedHosts || [])])]
+      blockedChallengeCount += (resA.blockedUrls?.length || 0) + (resB.blockedUrls?.length || 0) + (resOverview.blockedUrls?.length || 0)
+    } else {
+      const resWeb = await browseAndLearnTopic(analysis.searchQuery, shortLang, domainHint, analysis).catch(() => ({
+        docs: [],
+        scrapedHosts: [],
+        blockedUrls: []
+      }))
+      liveDocs = resWeb.docs || []
+      scrapedHosts = resWeb.scrapedHosts || []
+      blockedChallengeCount += resWeb.blockedUrls?.length || 0
     }
 
-    const [hitA, hitB] = await Promise.all([findOrLearn(termA), findOrLearn(termB)])
-    if (hitA && hitB && hitA.idx !== hitB.idx) {
-      const leadA = leadOf(kbIndex.sentences(hitA.idx), 420) || hitA.doc.text
-      const leadB = leadOf(kbIndex.sentences(hitB.idx), 420) || hitB.doc.text
-      const sources = [hitA.doc, hitB.doc]
-        .filter((d) => d.url)
-        .map((d) => ({ title: d.title, source: d.source, url: d.url }))
+    if (liveDocs.length > 0) {
+      learnedNew = true
+      hits = kbIndex.size > 0 ? kbIndex.findSubjects(analysis.tokens, shortLang, 5) : []
+      top = hits[0]
+    }
+  }
 
-      const reply =
-        `### Comparison: ${hitA.doc.title} vs. ${hitB.doc.title}\n\n` +
-        `- **${hitA.doc.title}**: ${leadA}\n` +
-        `- **${hitB.doc.title}**: ${leadB}`
+  const midChars =
+    liveDocs.reduce((acc, d) => acc + String(d.extract || '').length, 0) +
+    hits.slice(0, 2).reduce((acc, h) => acc + String(h.doc?.text || '').length, 0)
+  const webSourceCount1 = new Set(liveDocs.map((d) => d.url || d.title)).size
+  const action1Name = needsLiveBrowse ? 'browse_web_multi' : step1?.nextAction || 'retrieve_local_kb'
+  const action1Idx = Math.max(0, INTROSPECTION_ACTIONS.indexOf(action1Name))
 
+  const reaction1 = buildReactionVector({
+    bm25TopScore: Math.max((top?.rel || 0) * 12, liveDocs.length > 0 ? 7.5 : 0),
+    spanCount: Math.max(hits.length, liveDocs.length),
+    tokenCoverage: Math.max(top?.span?.share || 0, liveDocs.length > 0 ? 0.78 : 0),
+    domainAgree: top?.doc?.domain === basePrediction.intentTag || liveDocs.length > 0 ? 1.0 : 0.4,
+    clfTopProb: basePrediction.confidence,
+    clfEntropy: entropy0 * 0.85,
+    passageChars: midChars,
+    depthMode: analysis.depthMode,
+    isComparison: isCompare,
+    webSourceCount: webSourceCount1,
+    sentenceRichness: Math.min(1, midChars / 2200)
+  })
+
+  const step2 = introModel && zState ? stepRecursiveIntrospection(introModel, zState, action1Idx, reaction1) : null
+  if (step2) {
+    zState = step2.zNext
+    for (let c = 0; c < deltaSum.length; c++) deltaSum[c] += step2.delta[c]
+  }
+  traceSteps.push(buildStepTrace(2, action1Name, step2, reaction1))
+
+  // -------------------- STEP 3: Deep Verification Hop & Final Synthesis --------------------
+  if (
+    !skipLiveWeb &&
+    autoLearn &&
+    analysis.depthMode === 'detailed' &&
+    !analysis.comparison &&
+    liveDocs.length > 0 &&
+    liveDocs.length < 3 &&
+    analysis.searchQuery
+  ) {
+    const aspectHint = analysis.targetAspects?.[0] || (analysis.questionKind === 'how_to' ? 'guide steps examples' : 'detailed overview')
+    const hopQuery = `${analysis.searchQuery} ${aspectHint}`.trim()
+    const hopRes = await browseAndLearnTopic(hopQuery, shortLang, domainHint, analysis).catch(() => null)
+    if (hopRes?.docs?.length) {
+      liveDocs = [...liveDocs, ...hopRes.docs]
+      scrapedHosts = [...new Set([...scrapedHosts, ...(hopRes.scrapedHosts || [])])]
+      blockedChallengeCount += hopRes.blockedUrls?.length || 0
+    }
+  }
+
+  // Prepare side-by-side comparison entities if comparison query
+  if (analysis.comparison && (kbIndex.size > 0 || liveDocs.length > 0)) {
+    const [termA, termB] = analysis.comparison
+    const hitPair = [termA, termB].map((term) => {
+      const toks = tokenize(term, shortLang, false)
+      const kbMatch = kbIndex.size > 0 ? kbIndex.findSubjects(toks, shortLang, 1)[0]?.doc : null
+      if (kbMatch) return docToSynthesizable(kbMatch)
+      const webMatch = liveDocs.find((d) => String(d.title || '').toLowerCase().includes(term.toLowerCase()))
+      return docToSynthesizable(webMatch)
+    })
+    if (hitPair[0] && hitPair[1] && hitPair[0].title !== hitPair[1].title) {
+      compareBlocks = {
+        termA,
+        termB,
+        docA: hitPair[0],
+        docB: hitPair[1],
+        focusA: tokenize(termA, shortLang, false),
+        focusB: tokenize(termB, shortLang, false)
+      }
+    }
+  }
+
+  const mergedDocs = mergeDocsForSynthesis(liveDocs, hits)
+  const finalChars = mergedDocs.slice(0, 4).reduce((acc, d) => acc + d.extract.length, 0)
+  const totalWebCount = new Set(mergedDocs.filter((d) => d._liveWeb || d.learned).map((d) => d.url || d.title)).size
+  const finalActionIdx = Math.max(0, INTROSPECTION_ACTIONS.indexOf('synthesize_deep'))
+
+  const reaction2 = buildReactionVector({
+    bm25TopScore: Math.max((top?.rel || 0) * 12, mergedDocs.length > 0 ? 9 : 0),
+    spanCount: mergedDocs.length,
+    tokenCoverage: Math.max(top?.span?.share || 0, mergedDocs.length > 0 ? 0.85 : 0),
+    domainAgree: 1.0,
+    clfTopProb: basePrediction.confidence,
+    clfEntropy: entropy0 * 0.7,
+    passageChars: finalChars,
+    depthMode: analysis.depthMode,
+    isComparison: isCompare,
+    webSourceCount: totalWebCount,
+    sentenceRichness: Math.min(1, finalChars / 2600)
+  })
+
+  const step3 = introModel && zState ? stepRecursiveIntrospection(introModel, zState, finalActionIdx, reaction2) : null
+  if (step3) {
+    for (let c = 0; c < deltaSum.length; c++) deltaSum[c] += step3.delta[c]
+  }
+  traceSteps.push(buildStepTrace(3, 'synthesize_deep', step3, reaction2))
+
+  const refinedPrediction = refineIntentFromDeltas(basePrediction, deltaSum)
+  const docDomainValid =
+    top?.doc?.domain && activeModel.classes.includes(top.doc.domain) ? top.doc.domain : null
+  const effectiveTag = docDomainValid || refinedPrediction.intentTag
+  const matchedIntent = activeModel.intents.find((it) => it.tag === effectiveTag)
+  const intentTitle = matchedIntent ? matchedIntent.title : refinedPrediction.intentTitle
+
+  const introspectionSummary = {
+    steps: traceSteps,
+    finalAction: step3?.nextAction || 'synthesize_deep',
+    finalSufficiencyQ: step3?.qHat ?? step2?.qHat ?? step1?.qHat ?? 0.9,
+    totalWebSources: totalWebCount,
+    scrapedHosts,
+    blockedChallengeCount
+  }
+
+  if (mergedDocs.length > 0) {
+    const synthesized = synthesizeMultiSourceAnswer({
+      docs: mergedDocs,
+      analysis,
+      intentTitle,
+      lang: shortLang,
+      compareBlocks,
+      learnedCount: liveDocs.length
+    })
+    if (synthesized && synthesized.reply) {
       return {
-        ...basePrediction,
-        intentTitle: `${basePrediction.intentTitle} • Comparison`,
-        reply,
-        sourceTitle: `${hitA.doc.title} vs ${hitB.doc.title}`,
-        sourceUrl: sources[0]?.url || null,
-        sources,
-        followUps: [
-          `Explain ${hitA.doc.title} in detail`,
-          `Explain ${hitB.doc.title} in detail`,
-          `When should I use ${hitA.doc.title} over ${hitB.doc.title}?`
-        ],
-        learnedNew: Boolean(hitA.doc.learned || hitB.doc.learned),
+        ...refinedPrediction,
+        intentTag: effectiveTag,
+        intentTitle,
+        confidence: Number(
+          Math.max(refinedPrediction.confidence, Math.min(0.98, top?.rel || (liveDocs.length > 0 ? 0.88 : 0.75))).toFixed(4)
+        ),
+        reply: synthesized.reply,
+        sourceTitle: mergedDocs[0]?.title || null,
+        sourceUrl: synthesized.sources?.[0]?.url || null,
+        sources: synthesized.sources || [],
+        followUps: synthesized.followUps?.length ? synthesized.followUps : basePrediction.followUps,
+        depthMode: analysis.depthMode,
+        questionKind: analysis.questionKind,
+        scrapedHosts,
+        introspection: introspectionSummary,
+        learnedNew,
         latencyMs: Number((performance.now() - start).toFixed(3))
       }
     }
   }
 
-  // 4. Local BM25 Knowledge Pool + Extractive Passage Selection
-  let learnedNew = false
-  let hits = kbIndex.size > 0 ? kbIndex.findSubjects(analysis.tokens, shortLang, 3) : []
-  let top = hits[0]
-
-  const isWeakLocalHit = !top || (top.rel < 0.55 && !(top.span && top.span.share >= 0.45))
-
-  // 5. Self-learning live web lookup if local pool has no strong match
-  if (isWeakLocalHit && autoLearn && analysis.searchQuery && analysis.searchQuery.length >= 2) {
-    const domainHint = basePrediction.intentTag !== 'unknown' ? basePrediction.intentTag : null
-    const learnedDoc = await learnTopicFromWeb(analysis.searchQuery, shortLang, domainHint).catch(() => null)
-    if (learnedDoc) {
-      learnedNew = true
-      hits = kbIndex.findSubjects(analysis.tokens, shortLang, 3)
-      top = hits[0]
-    }
-  }
-
-  if (top && (top.rel >= 0.36 || (top.span && top.span.share >= 0.3))) {
-    const focus = focusTerms(analysis.tokens, top, kbIndex)
-    const sentences = kbIndex.sentences(top.idx)
-    const subjectTokens = tokenize(top.doc.title, top.doc.lang)
-    const passage = bestPassage(
-      sentences,
-      focus,
-      (t) => kbIndex.idf(t),
-      analysis.wh,
-      subjectTokens,
-      top.doc.lang
-    )
-
-    const reply = formatKnowledgeAnswer(top, passage, kbIndex, learnedNew)
-    const sources = top.doc.url
-      ? [{ title: top.doc.title, source: top.doc.source, url: top.doc.url }]
-      : []
-
-    const relatedFollowUps = hits
-      .slice(1, 3)
-      .map((h) => `What is ${h.doc.title}?`)
-      .concat([`How is ${top.doc.title} used in practice?`])
-      .slice(0, 3)
-
-    const effectiveTag = top.doc.domain || basePrediction.intentTag
-    const matchedIntent = activeModel.intents.find((it) => it.tag === effectiveTag)
-
-    return {
-      ...basePrediction,
-      intentTag: effectiveTag,
-      intentTitle: matchedIntent ? matchedIntent.title : basePrediction.intentTitle,
-      confidence: Number(Math.max(basePrediction.confidence, Math.min(0.98, top.rel)).toFixed(4)),
-      reply,
-      sourceTitle: top.doc.title,
-      sourceUrl: top.doc.url || null,
-      sources,
-      followUps: relatedFollowUps.length ? relatedFollowUps : basePrediction.followUps,
-      learnedNew,
-      latencyMs: Number((performance.now() - start).toFixed(3))
-    }
-  }
-
-  // 6. Fallback to trained Softmax domain summary + scraped insights
-  const intentObj = activeModel.intents.find((it) => it.tag === basePrediction.intentTag)
-  let reply = basePrediction.reply
+  // 6. Fallback to trained TextCNN domain summary + scraped insights
+  const intentObj = activeModel.intents.find((it) => it.tag === refinedPrediction.intentTag)
+  let reply = refinedPrediction.reply
   const sources = []
-  if (intentObj?.scraped_insights?.length > 0 && basePrediction.confidence >= 0.25) {
+  if (intentObj?.scraped_insights?.length > 0 && refinedPrediction.confidence >= 0.2) {
     const insight = intentObj.scraped_insights[0]
     if (insight.url) {
       sources.push({ title: insight.title, source: insight.source, url: insight.url })
@@ -574,11 +827,15 @@ export async function generateIntelligentReply(userMessage, options = {}) {
   }
 
   return {
-    ...basePrediction,
+    ...refinedPrediction,
     reply,
     sourceTitle: intentObj?.title || null,
     sourceUrl: sources[0]?.url || null,
     sources,
+    depthMode: analysis.depthMode,
+    questionKind: analysis.questionKind,
+    scrapedHosts,
+    introspection: introspectionSummary,
     learnedNew: false,
     latencyMs: Number((performance.now() - start).toFixed(3))
   }
@@ -705,8 +962,27 @@ function levenshteinDistance(a, b) {
 
 export function getModelSummary() {
   const model = activeModel
+  const cnnMeta = model.cnn
+    ? {
+        kernels: model.cnn.kernels || [2, 3, 4],
+        filters_per_kernel: model.cnn.filters || 24,
+        embedding_dim: model.cnn.emb_dim || 32,
+        max_seq_len: model.cnn.max_len || 36,
+        hidden_dim: model.cnn.hidden_dim || 96,
+        cnn_vocab_size: Object.keys(model.cnn.vocab || {}).length
+      }
+    : null
+  const introMeta = model.introspection
+    ? {
+        steps: model.introspection.steps || 3,
+        actions: model.introspection.actions || INTROSPECTION_ACTIONS,
+        reaction_dim: model.introspection.reaction_dim || 12
+      }
+    : null
   return {
     ...model.model_info,
+    cnn_architecture: cnnMeta,
+    introspection_architecture: introMeta,
     intents: model.intents.map((it) => ({
       tag: it.tag,
       title: it.title,

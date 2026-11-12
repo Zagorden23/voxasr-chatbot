@@ -38,8 +38,8 @@ from training import kb_store  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("KnowledgeHarvester")
 
-USER_AGENT = "KnowledgeHarvesterBot/3.0 (educational chatbot knowledge base; python-requests)"
-MAX_TEXT_CHARS = 1000
+USER_AGENT = "KnowledgeHarvesterBot/4.0 (educational omni-domain chatbot knowledge base; python-requests)"
+MAX_TEXT_CHARS = 1800
 BATCH_SIZE = 20
 WORKERS = 3
 SKIP_TITLE_PREFIXES = ("List of ", "Lists of ", "Outline of ", "Index of ", "Timeline of ", "Glossary of ", "Comparison of ")
@@ -240,18 +240,95 @@ DOMAINS: Dict[str, Dict] = {
                        "Natural language parsing", "Semantic Web", "Knowledge representation", "Word embedding",
                        "Linguistics", "Syntax", "Semantics", "Grammar", "Corpus linguistics", "Lexicography"],
     },
-    # Wider STEM context (knowledge only — not classifier classes).
-    "science_general": {
-        "title": "Physics, Chemistry, Biology & Engineering",
-        "topics": ["Physics", "Chemistry", "Biology", "Photosynthesis", "DNA", "Evolution", "General relativity",
-                   "Quantum mechanics", "Thermodynamics", "Electromagnetism", "Periodic table", "Cell (biology)",
-                   "Newton's laws of motion", "Entropy", "Electricity", "Semiconductor", "Transistor", "Robotics"],
-        "categories": ["Concepts in physics", "Physical quantities", "Classical mechanics", "Thermodynamics",
-                       "Electromagnetism", "Quantum mechanics", "Chemistry", "Chemical elements", "Biology",
-                       "Molecular biology", "Genetics", "Astronomy", "Electrical engineering", "Electronics",
-                       "Robotics", "Bioinformatics", "Subfields of physics", "Branches of biology", "Units of measurement",
-                       "Scientific method", "Mechanical engineering", "Control theory", "Telecommunications",
-                       "Wireless networking", "Mobile technology", "Emerging technologies", "Renewable energy"],
+    # Comprehensive World Disciplines (Science, Medicine, Engineering, Commerce, Arts, Music, Dance, Sports, Entertainment, Society)
+    "physics_astronomy_earth": {
+        "title": "Physics, Astronomy & Earth Science",
+        "topics": ["Physics", "Quantum mechanics", "General relativity", "Special relativity", "Thermodynamics",
+                   "Electromagnetism", "Optics", "Astrophysics", "Black hole", "Big Bang", "Newton's laws of motion",
+                   "Quantum entanglement", "Nuclear fusion", "Plate tectonics", "Greenhouse effect", "Higgs boson",
+                   "Standard Model", "Max Planck", "Albert Einstein", "Solar System"],
+        "categories": ["Classical mechanics", "Quantum mechanics", "Thermodynamics", "Electromagnetism", "Optics",
+                       "Astrophysics", "Physical cosmology", "Particle physics", "Earth sciences", "Plate tectonics",
+                       "Atmospheric sciences", "Climate change"],
+    },
+    "chemistry_biology_medicine": {
+        "title": "Chemistry, Biology, Genetics & Medicine",
+        "topics": ["Chemistry", "Organic chemistry", "Periodic table", "Chemical bond", "Biology", "Cell (biology)",
+                   "DNA", "CRISPR", "Photosynthesis", "Cellular respiration", "Evolution", "Natural selection",
+                   "Immune system", "Vaccine", "Antibiotic", "Neuroscience", "Neuron", "Enzyme", "Ecology", "Medicine"],
+        "categories": ["Organic chemistry", "Biochemistry", "Chemical elements", "Molecular biology", "Genetics",
+                       "Cell biology", "Evolutionary biology", "Immunology", "Neuroscience", "Pharmacology", "Ecology"],
+    },
+    "engineering_robotics_energy": {
+        "title": "Engineering, Robotics, Aerospace & Energy",
+        "topics": ["Mechanical engineering", "Civil engineering", "Electrical engineering", "Aerospace engineering",
+                   "Chemical engineering", "Robotics", "Control theory", "PID controller", "Renewable energy",
+                   "Solar cell", "Wind turbine", "Lithium-ion battery", "Semiconductor device", "Transistor",
+                   "Internal combustion engine", "Electric motor", "Aerodynamics", "Rocket", "Suspension bridge",
+                   "Photolithography"],
+        "categories": ["Mechanical engineering", "Civil engineering", "Electrical engineering", "Aerospace engineering",
+                       "Chemical engineering", "Robotics", "Control engineering", "Renewable energy", "Batteries",
+                       "Semiconductor devices", "Power engineering"],
+    },
+    "commerce_finance_economics": {
+        "title": "Commerce, Finance, Economics & Business",
+        "topics": ["Economics", "Macroeconomics", "Microeconomics", "Supply and demand", "Inflation", "Gross domestic product",
+                   "Monetary policy", "Fiscal policy", "Stock market", "Compound interest", "Balance sheet", "Income statement",
+                   "Cash flow statement", "Double-entry bookkeeping", "Venture capital", "Marketing", "Supply chain management",
+                   "Central bank", "Foreign exchange market", "Entrepreneurship"],
+        "categories": ["Macroeconomics", "Microeconomics", "Finance", "Financial markets", "Accounting", "Banking",
+                       "Monetary economics", "International trade", "Marketing", "Supply chain management", "Business"],
+    },
+    "arts_literature_design": {
+        "title": "Fine Arts, Literature, Architecture & Design",
+        "topics": ["Art", "Painting", "Sculpture", "Renaissance", "Impressionism", "Surrealism", "Cubism",
+                   "Gothic architecture", "Architecture", "Literature", "Poetry", "William Shakespeare", "Photography",
+                   "Exposure (photography)", "Graphic design", "Typography", "Color theory", "Bauhaus",
+                   "Leonardo da Vinci", "Novel"],
+        "categories": ["Visual arts", "Art movements", "Renaissance art", "Impressionism", "Architecture", "Poetry",
+                       "Literary genres", "Photography", "Graphic design", "Typography", "Sculpture"],
+    },
+    "music_audio_theory": {
+        "title": "Music Theory, Genres & Instruments",
+        "topics": ["Music", "Music theory", "Musical scale", "Chord (music)", "Harmony", "Circle of fifths",
+                   "Classical music", "Hindustani classical music", "Carnatic music", "Raga", "Tala (music)",
+                   "Jazz", "Rock music", "Hip hop music", "Electronic music", "Piano", "Guitar", "Violin", "Tabla", "Sitar"],
+        "categories": ["Music theory", "Musical scales", "Chords", "Classical music", "Indian classical music", "Jazz",
+                       "Rock music", "Hip hop", "Electronic music", "Musical instruments", "Music production"],
+    },
+    "dance_performing_arts": {
+        "title": "Dance Forms, Choreography & Performing Arts",
+        "topics": ["Dance", "Ballet", "Contemporary dance", "Hip-hop dance", "Breakdancing", "Bharatanatyam", "Kathak",
+                   "Kuchipudi", "Odissi", "Kathakali", "Flamenco", "Salsa (dance)", "Tango", "Choreography", "Opera",
+                   "Musical theatre", "Performing arts", "Theatre", "Folk dance", "Ballroom dance"],
+        "categories": ["Dance", "Ballet", "Indian classical dances", "Hip-hop dance", "Choreography", "Performing arts",
+                       "Opera", "Theatre", "Social dance", "Folk dance"],
+    },
+    "sports_athletics_games": {
+        "title": "Sports, Athletics, Olympics & Mind Games",
+        "topics": ["Sport", "Cricket", "Leg before wicket", "Duckworth–Lewis–Stern method", "Association football",
+                   "Offside (association football)", "FIFA World Cup", "Basketball", "Tennis", "Wimbledon Championships",
+                   "Badminton", "Chess", "Castling", "Formula One", "Olympic Games", "Track and field", "Marathon",
+                   "Swimming (sport)", "Martial arts", "Judo"],
+        "categories": ["Sports", "Cricket", "Association football", "Basketball", "Tennis", "Badminton", "Chess",
+                       "Formula One", "Olympic Games", "Athletics (track and field)", "Martial arts"],
+    },
+    "entertainment_cinema_gaming": {
+        "title": "Cinema, Animation, Television & Video Games",
+        "topics": ["Film", "Filmmaking", "Cinematography", "Screenwriting", "Animation", "Computer animation", "Anime",
+                   "Studio Ghibli", "Visual effects", "Video game", "Game engine", "Unreal Engine", "Esports", "Television",
+                   "Streaming media", "Academy Awards", "Grammy Awards", "Hollywood", "Hindi cinema", "Theatre"],
+        "categories": ["Filmmaking", "Cinematography", "Animation", "Anime", "Visual effects", "Video game development",
+                       "Game engines", "Esports", "Television", "Film awards"],
+    },
+    "history_geography_law_society": {
+        "title": "World History, Geography, Philosophy, Law & Culture",
+        "topics": ["World history", "Industrial Revolution", "Ancient Egypt", "Mesopotamia", "Indus Valley Civilisation",
+                   "World War I", "World War II", "Geography", "Continent", "Ocean", "United Nations", "International law",
+                   "Human rights", "Philosophy", "Stoicism", "Existentialism", "Democracy", "Separation of powers",
+                   "Cuisine", "Fermentation in food processing"],
+        "categories": ["World history", "Industrial Revolution", "Ancient history", "Geography", "Physical geography",
+                       "International law", "Philosophy", "Ethics", "Political science", "Constitutional law", "Culinary arts"],
     },
 }
 
@@ -486,9 +563,8 @@ def crawl_domain(domain_key: str, cap: int, depth: int = 1, max_subcats: int = 3
             for sc in subcats:
                 if subcats_used >= max_subcats:
                     break
-                if sc not in visited and not re.search(r"stubs?$|by |images|people|researchers|scientists|companies|"
-                                                       r"journals|conferences|awards|organizations|books|software$|"
-                                                       r"films|history of|video games|fiction", sc, re.I):
+                if sc not in visited and not re.search(r"stubs?$|by |images|journals|conferences|"
+                                                       r"organizations|software$", sc, re.I):
                     queue.append((sc, level + 1))
                     subcats_used += 1
     return titles[:cap]
@@ -675,6 +751,47 @@ def harvest_all_domains(
             logger.info("Checkpoint saved: %d articles", len(articles))
 
     learned = merge_learned(articles)
+    # Enrich pool with multi-website OpenAlex abstracts across global domains when harvesting substantial batches
+    if max_articles >= 800:
+        openalex_queries = [
+            ("physics_astronomy_earth", "quantum entanglement astrophysics"),
+            ("chemistry_biology_medicine", "CRISPR gene editing immunology"),
+            ("engineering_robotics_energy", "solid state lithium battery robotics"),
+            ("commerce_finance_economics", "monetary policy inflation macroeconomics"),
+            ("arts_literature_design", "modern architecture design aesthetics"),
+            ("music_audio_theory", "acoustic music harmony rhythm"),
+            ("dance_performing_arts", "classical choreography performing arts"),
+            ("sports_athletics_games", "biomechanics sports performance training"),
+            ("entertainment_cinema_gaming", "computer animation game engine rendering"),
+            ("history_geography_law_society", "constitutional governance international law"),
+        ]
+        for dom, oq in openalex_queries:
+            try:
+                oa_resp = _session().get(
+                    "https://api.openalex.org/works",
+                    params={"search": oq, "per-page": 3},
+                    timeout=10,
+                )
+                if oa_resp.status_code == 200:
+                    for w in oa_resp.json().get("results", []):
+                        t = (w.get("title") or "").strip()
+                        inv = w.get("abstract_inverted_index") or {}
+                        if not t or not inv or t in articles:
+                            continue
+                        pairs = [(pos, word) for word, positions in inv.items() for pos in positions]
+                        pairs.sort()
+                        abs_text = truncate_at_sentence(" ".join(word for _, word in pairs))
+                        if len(abs_text) >= 90:
+                            articles[t] = {
+                                "t": t[:200],
+                                "x": abs_text,
+                                "d": dom,
+                                "s": "OpenAlex Peer-Reviewed",
+                                "u": w.get("doi") or w.get("id") or "",
+                            }
+            except Exception:
+                continue
+
     manifest = kb_store.save_kb(articles, note="full harvest")
     elapsed = round(time.time() - started, 1)
     logger.info("Harvest complete: %d articles (%d self-learned) in %ss -> %s",

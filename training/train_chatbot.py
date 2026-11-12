@@ -20,8 +20,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
+from cnn_introspection import (
+    ACTIONS,
+    CNN_EMB_DIM,
+    CNN_FILTERS,
+    CNN_KERNELS,
+    CNN_MAX_LEN,
+    HIDDEN_DIM,
+    TFIDF_PROJ_DIM,
+    RecursiveIntrospectionModel,
+    build_cnn_vocab,
+    encode_sequences,
+    TextCNNClassifier,
+)
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.pipeline import make_pipeline
@@ -247,12 +261,12 @@ def train_and_export():
 
     print(f"Base Patterns: {len(raw_texts)} | Augmented Training Samples: {len(texts)}")
 
-    # Fit TF-IDF Vectorizer
+    # Fit TF-IDF Vectorizer (capped at 4500 compact multilingual n-grams for TextCNN + Logistic fusion)
     vectorizer = TfidfVectorizer(
         analyzer=combined_analyzer,
         sublinear_tf=True,
         norm="l2",
-        max_features=8000,
+        max_features=4500,
         min_df=1
     )
 
@@ -261,15 +275,15 @@ def train_and_export():
     idf = vectorizer.idf_
     print(f"Extracted Multilingual Vocabulary: {len(vocab)} features")
 
-    # 5-Fold Stratified Cross Validation on base patterns
+    # 5-Fold Stratified Cross Validation on base patterns (baseline linear calibration)
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     cv_pipe = make_pipeline(
-        TfidfVectorizer(analyzer=combined_analyzer, sublinear_tf=True, norm="l2", max_features=8000, min_df=1),
+        TfidfVectorizer(analyzer=combined_analyzer, sublinear_tf=True, norm="l2", max_features=4500, min_df=1),
         LogisticRegression(C=15.0, max_iter=1000, class_weight="balanced", random_state=42)
     )
     cv_scores = cross_val_score(cv_pipe, raw_texts, raw_y, cv=cv, scoring="accuracy")
 
-    # Train final classifier
+    # Train regularized Linear Softmax head (calibrated ensemble prior)
     clf = LogisticRegression(C=15.0, max_iter=1000, class_weight="balanced", random_state=42)
     clf.fit(X, y)
 
@@ -277,10 +291,53 @@ def train_and_export():
     train_acc = accuracy_score(y, train_preds)
     train_f1 = f1_score(y, train_preds, average="macro")
 
-    print(f"Training Accuracy: {train_acc * 100:.2f}% | Macro F1: {train_f1 * 100:.2f}%")
-    print(f"5-Fold Stratified CV Accuracy: {cv_scores.mean() * 100:.2f}% (+/- {cv_scores.std() * 100:.2f}%)")
+    # Train Multi-Scale 1D Convolutional Neural Network (TextCNN)
+    class_tags = [intent["tag"] for intent in intents]
+    counts = np.bincount(y, minlength=len(intents))
+    sample_weights = (len(y) / (len(intents) * np.maximum(1, counts[y]))).astype(np.float32)
 
-    # Multi-language sanity checks
+    cnn_vocab = build_cnn_vocab(texts, max_vocab=2800)
+    seq_ids, seq_lens = encode_sequences(texts, cnn_vocab)
+
+    # Validation holdout on unseen raw patterns for honest TextCNN verification
+    from sklearn.model_selection import StratifiedShuffleSplit
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=0.15, random_state=42)
+    raw_tr_idx, raw_va_idx = next(sss.split(raw_texts, raw_y))
+    tr_seq, tr_len = encode_sequences([raw_texts[i] for i in raw_tr_idx], cnn_vocab)
+    va_seq, va_len = encode_sequences([raw_texts[i] for i in raw_va_idx], cnn_vocab)
+    tr_X_raw = vectorizer.transform([raw_texts[i] for i in raw_tr_idx])
+    va_X_raw = vectorizer.transform([raw_texts[i] for i in raw_va_idx])
+    tr_y_raw = raw_y[raw_tr_idx]
+    va_y_raw = raw_y[raw_va_idx]
+    tr_counts = np.bincount(tr_y_raw, minlength=len(intents))
+    tr_w = (len(tr_y_raw) / (len(intents) * np.maximum(1, tr_counts[tr_y_raw]))).astype(np.float32)
+
+    val_cnn = TextCNNClassifier(len(cnn_vocab), len(vocab), len(intents))
+    val_cnn.fit(tr_seq, tr_len, tr_X_raw, tr_y_raw, tr_w, epochs=24, batch_size=48)
+    _, va_probs, _ = val_cnn.predict(va_seq, va_len, va_X_raw)
+    cnn_val_acc = accuracy_score(va_y_raw, np.argmax(va_probs, axis=1))
+
+    # Full Multi-Scale 1D TextCNN training
+    cnn = TextCNNClassifier(len(cnn_vocab), len(vocab), len(intents))
+    cnn.fit(seq_ids, seq_lens, X, y, sample_weights, epochs=26, batch_size=64)
+    cnn_logits, cnn_probs, cnn_hidden = cnn.predict(seq_ids, seq_lens, X)
+    cnn_preds = np.argmax(cnn_probs, axis=1)
+    cnn_acc = accuracy_score(y, cnn_preds)
+    cnn_f1 = f1_score(y, cnn_preds, average="macro")
+
+    # Train 3-Step Recursive Action-Reaction Introspection Model via BPTT
+    intro = RecursiveIntrospectionModel(len(intents))
+    intro_metrics = intro.fit_bptt(cnn_hidden, cnn_logits, y, class_tags, epochs=35, batch_size=64)
+
+    print(f"Linear Softmax Accuracy: {train_acc * 100:.2f}% | 5-Fold CV: {cv_scores.mean() * 100:.2f}%")
+    print(f"Multi-Scale 1D TextCNN Accuracy: {cnn_acc * 100:.2f}% | Macro F1: {cnn_f1 * 100:.2f}% | Holdout Val Acc: {cnn_val_acc * 100:.2f}%")
+    print(
+        f"Recursive Introspection (3-Step BPTT, {intro_metrics['rollout_trajectories']} rollouts): "
+        f"Action Acc={intro_metrics['policy_action_accuracy'] * 100:.2f}% | "
+        f"Critic Cal={intro_metrics['critic_calibration_score'] * 100:.2f}%"
+    )
+
+    # Multi-language & omni-domain sanity checks
     multilingual_queries = [
         ("What is Singular Value Decomposition (SVD)?", "numerical_analysis"),
         ("Explain Dijkstra's shortest path algorithm", "algorithms_complexity"),
@@ -288,55 +345,116 @@ def train_and_export():
         ("什么是Transformer架构和自注意力机制？", "machine_learning_dl"),
         ("डाइक्स्ट्रा एल्गोरिदम और टाइम कॉम्प्लेक्सिटी क्या है?", "algorithms_complexity"),
         ("Qu'est-ce que le théorème CAP en systèmes distribués?", "systems_distributed_computing"),
-        ("Wie funktioniert die RSA Verschlüsselung?", "cryptography_security"),
-        ("Что такое машина Тьюринга?", "theoretical_cs_discrete_math"),
-        ("How does OpenAI Whisper perform Speech-to-Text?", "speech_ai_asr"),
+        ("How do black holes and general relativity work?", "physics_astronomy_earth"),
+        ("What causes DNA replication and mRNA transcription?", "chemistry_biology_medicine"),
+        ("Explain Keynesian macroeconomics and compound interest", "commerce_finance_economics"),
+        ("What is the rule of thirds in Renaissance painting and architecture?", "arts_literature_design"),
+        ("Explain musical harmony, chord progressions, and Hindustani classical raga", "music_audio_theory"),
+        ("What are classical ballet positions and Kathak footwork?", "dance_performing_arts"),
+        ("Explain the cricket LBW rule and football offside trap", "sports_athletics_games"),
+        ("What is cinematography lighting and three-act screenplay structure?", "entertainment_cinema_gaming"),
+        ("When was the Magna Carta signed and how does the UN work?", "history_geography_law_society"),
+        ("How do brushless DC motors and solar photovoltaics work?", "engineering_robotics_energy"),
         ("Calculate Word Error Rate (WER)", "wer_evaluation"),
         ("Bonjour assistant!", "greeting"),
-        ("नमस्ते चैटबॉट", "greeting"),
-        ("你好", "greeting"),
         ("Hola, ¿qué idiomas hablas?", "language_support")
     ]
 
-    print("\nSanity-Checking Multi-Language & CS/Math Inference:")
-    class_tags = [intent["tag"] for intent in intents]
-    for q, expected in multilingual_queries:
-        xq = vectorizer.transform([q])
-        probs = clf.predict_proba(xq)[0]
+    print("\nSanity-Checking Multi-Language & Omni-Domain TextCNN Inference:")
+    q_texts = [q for q, _ in multilingual_queries]
+    q_seq, q_len = encode_sequences(q_texts, cnn_vocab)
+    q_X = vectorizer.transform(q_texts)
+    _, q_cnn_probs, _ = cnn.predict(q_seq, q_len, q_X)
+    q_lin_probs = clf.predict_proba(q_X)
+    q_ens_probs = 0.72 * q_cnn_probs + 0.28 * q_lin_probs
+    for idx_q, (q, expected) in enumerate(multilingual_queries):
+        probs = q_ens_probs[idx_q]
         best_idx = int(np.argmax(probs))
         predicted = class_tags[best_idx]
         match = "✓" if predicted == expected else "✗"
-        print(f"  [{match}] '{q[:48]}' -> [{predicted}] ({probs[best_idx] * 100:.1f}%)")
+        print(f"  [{match}] '{q[:50]}' -> [{predicted}] ({probs[best_idx] * 100:.1f}%)")
 
-    # Format model JSON
+    def _pack(arr, decimals=4):
+        return np.round(arr.astype(float), decimals).tolist()
+
+    # Format compact model JSON (Linear + Multi-Scale TextCNN + 3-Step Introspection)
     clean_vocab = {str(token): int(feat_idx) for token, feat_idx in vocab.items()}
-    weights_matrix = [[round(float(w), 5) for w in row] for row in clf.coef_]
-    biases = [round(float(b), 5) for b in clf.intercept_]
-    idf_list = [round(float(v), 5) for v in idf]
+    weights_matrix = [[round(float(w), 4) for w in row] for row in clf.coef_]
+    biases = [round(float(b), 4) for b in clf.intercept_]
+    idf_list = [round(float(v), 4) for v in idf]
+
+    cnn_block = {
+        "max_len": CNN_MAX_LEN,
+        "emb_dim": CNN_EMB_DIM,
+        "kernels": list(CNN_KERNELS),
+        "filters": CNN_FILTERS,
+        "tfidf_proj_dim": TFIDF_PROJ_DIM,
+        "hidden_dim": HIDDEN_DIM,
+        "vocab": {str(k): int(v) for k, v in cnn_vocab.items()},
+        "E": _pack(cnn.params["E"]),
+        "convs": {
+            str(k): {
+                "W": _pack(cnn.params[f"W_c{k}"]),
+                "b": _pack(cnn.params[f"b_c{k}"]),
+            }
+            for k in CNN_KERNELS
+        },
+        "W_sp": _pack(cnn.params["W_sp"]),
+        "b_sp": _pack(cnn.params["b_sp"]),
+        "W_h": _pack(cnn.params["W_h"]),
+        "b_h": _pack(cnn.params["b_h"]),
+        "W_cls": _pack(cnn.params["W_cls"]),
+        "b_cls": _pack(cnn.params["b_cls"]),
+    }
+
+    introspection_block = {
+        "actions": ACTIONS,
+        "steps": intro_metrics["introspection_steps"],
+        "reaction_dim": 12,
+        "W_g": _pack(intro.params["W_g"]),
+        "b_g": _pack(intro.params["b_g"]),
+        "W_u": _pack(intro.params["W_u"]),
+        "b_u": _pack(intro.params["b_u"]),
+        "W_pi": _pack(intro.params["W_pi"]),
+        "b_pi": _pack(intro.params["b_pi"]),
+        "w_q": _pack(intro.params["w_q"]),
+        "b_q": _pack(intro.params["b_q"]),
+        "W_delta": _pack(intro.params["W_delta"]),
+        "b_delta": _pack(intro.params["b_delta"]),
+    }
 
     exported_model = {
         "model_info": {
-            "name": "VoxASR-OmniKnowledge-v2",
-            "version": "2.0.0",
-            "trained_with": "Python 3.12 + scikit-learn + NumPy",
-            "architecture": "Sublinear Multilingual TF-IDF (Word 1-2g + Char 3-4g + CJK) + L2 Softmax Classifier",
+            "name": "VoxASR-OmniBrowser-CNN-Introspection-v4",
+            "version": "4.0.0",
+            "trained_with": "Python 3.12 + NumPy TextCNN & BPTT Introspection + scikit-learn",
+            "architecture": "Multi-Scale 1D TextCNN (k=2,3,4) + Sublinear TF-IDF Fusion + 3-Step Recursive Action-Reaction Introspection (BPTT)",
             "trained_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "num_classes": len(intents),
             "base_patterns": len(raw_texts),
             "augmented_samples": len(texts),
             "vocab_size": len(clean_vocab),
+            "cnn_vocab_size": len(cnn_vocab),
             "scraped_articles_included": scraped_count,
-            "train_accuracy": round(float(train_acc), 4),
-            "macro_f1": round(float(train_f1), 4),
+            "train_accuracy": round(float(cnn_acc), 4),
+            "macro_f1": round(float(cnn_f1), 4),
+            "linear_train_accuracy": round(float(train_acc), 4),
             "cv_accuracy_mean": round(float(cv_scores.mean()), 4),
-            "cv_accuracy_std": round(float(cv_scores.std()), 4)
+            "cv_accuracy_std": round(float(cv_scores.std()), 4),
+            "cnn_val_accuracy": round(float(cnn_val_acc), 4),
+            "introspection_steps": intro_metrics["introspection_steps"],
+            "introspection_rollouts": intro_metrics["rollout_trajectories"],
+            "introspection_policy_acc": intro_metrics["policy_action_accuracy"],
+            "introspection_critic_cal": intro_metrics["critic_calibration_score"],
         },
         "classes": class_tags,
         "intents": [intent_meta[t] for t in class_tags],
         "vocabulary": clean_vocab,
         "idf": idf_list,
         "weights": weights_matrix,
-        "biases": biases
+        "biases": biases,
+        "cnn": cnn_block,
+        "introspection": introspection_block,
     }
 
     MODEL_OUT_PATH.parent.mkdir(parents=True, exist_ok=True)

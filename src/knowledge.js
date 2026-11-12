@@ -7,6 +7,7 @@
  */
 
 import { tokenize, FILLER, looseMatch, splitSentences, stem } from './text.js'
+import { parseQueryDepthAndKind } from './query_analyzer.js'
 
 const K1 = 1.4
 const B = 0.6
@@ -398,7 +399,7 @@ export function analyzeQuery(message, lang = 'en') {
     searchQuery = words.length ? words.join(' ') : stripped
   }
 
-  return { raw: String(message || ''), lang, topic: text, tokens, wh, howTo, comparison, searchQuery: searchQuery || text }
+  return parseQueryDepthAndKind(message, { raw: String(message || ''), lang, topic: text, tokens, wh, howTo, comparison, searchQuery: searchQuery || text })
 }
 
 // ---------------------------------------------------------------------------

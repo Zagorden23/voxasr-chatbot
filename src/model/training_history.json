@@ -88,5 +88,23 @@
     "train_accuracy": 0.988358089120835,
     "macro_f1": 0.9731046908235802,
     "scraped_articles": 614
+  },
+  {
+    "timestamp": "2026-11-12T19:31:44Z",
+    "num_classes": 28,
+    "patterns": 3891,
+    "vocab_size": 4500,
+    "train_accuracy": 0.9758500928842582,
+    "macro_f1": 0.9462841073868018,
+    "scraped_articles": 1066
+  },
+  {
+    "timestamp": "2026-11-12T19:38:15Z",
+    "num_classes": 28,
+    "patterns": 3900,
+    "vocab_size": 4500,
+    "train_accuracy": 0.9761617137794959,
+    "macro_f1": 0.9463225145770686,
+    "scraped_articles": 1066
   }
 ]
